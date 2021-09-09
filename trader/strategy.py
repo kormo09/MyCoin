@@ -110,7 +110,7 @@ class Strategy:
         if predm == 0:
             sm = 0
         else:
-            sm = dm - self.dict_gsjm[ticker]['누적거래대금'][0]
+            sm = dm - predm
         ch = round(bid / ask * 100, 2)
 
         if d + t != self.dict_gsjm[ticker]['체결강도'][self.dict_intg['평균시간'] + 1]:
@@ -146,7 +146,7 @@ class Strategy:
         if ch < self.dict_gsjm[ticker]['최고체결강도'][self.dict_intg['평균시간'] + 1] - self.dict_intg['체결강도차이']:
             return
 
-        oc = int(batting / 5 / c)
+        oc = int(batting / c)
         if oc > 0:
             self.list_buy.append(ticker)
             self.workerQ.put(['매수', ticker, c, oc])

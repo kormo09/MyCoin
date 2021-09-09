@@ -2,7 +2,7 @@ import datetime
 import telegram
 from threading import Thread
 
-f = open('user.txt')
+f = open('D:/PythonProjects/MyCoin/trader/user.txt')
 lines = f.readlines()
 bot = lines[2].strip()
 user_id = lines[3].strip()
@@ -39,6 +39,14 @@ def timedelta_hour(hour, std_time=None):
         next_time = now() + datetime.timedelta(hours=hour)
     else:
         next_time = std_time + datetime.timedelta(hours=hour)
+    return next_time
+
+
+def timedelta_day(day, std_time=None):
+    if std_time is None:
+        next_time = now() + datetime.timedelta(days=day)
+    else:
+        next_time = std_time + datetime.timedelta(days=day)
     return next_time
 
 

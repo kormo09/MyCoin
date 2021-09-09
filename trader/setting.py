@@ -3,6 +3,7 @@ from PyQt5.QtGui import QFont, QColor
 system_path = 'D:/PythonProjects/MyCoin/'
 db_path = f'{system_path}/db'
 db_stg = f'{db_path}/stg.db'
+db_tick = f'{db_path}/tick.db'
 db_backtest = f'{db_path}/backtest.db'
 
 qfont12 = QFont()
@@ -19,6 +20,7 @@ color_bg_dk = QColor(30, 30, 35)
 color_bg_bk = QColor(20, 20, 25)
 
 style_bc_bt = 'background-color: rgb(50, 50, 55);'
+style_bc_dk = 'background-color: rgb(30, 30, 35);'
 
 ui_num = {'거래합계': 1, '거래목록': 2, '잔고평가': 3, '잔고목록': 4, '체결목록': 5, '관심종목': 6,
           '당일합계': 7, '당일상세': 8, '누적합계': 9, '누적상세': 10}

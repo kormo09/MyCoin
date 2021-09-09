@@ -42,16 +42,16 @@ class Window(QtWidgets.QMainWindow):
             tableWidget.setRowCount(rowcount)
             tableWidget.setHorizontalHeaderLabels(columns)
             if columns[0] == 'ticker':
-                tableWidget.setColumnWidth(0, 81)
-                tableWidget.setColumnWidth(1, 75)
-                tableWidget.setColumnWidth(2, 45)
-                tableWidget.setColumnWidth(3, 45)
-                tableWidget.setColumnWidth(4, 75)
-                tableWidget.setColumnWidth(5, 75)
-                tableWidget.setColumnWidth(6, 115)
-                tableWidget.setColumnWidth(7, 50)
-                tableWidget.setColumnWidth(8, 50)
-                tableWidget.setColumnWidth(9, 50)
+                tableWidget.setColumnWidth(0, 85)
+                tableWidget.setColumnWidth(1, 80)
+                tableWidget.setColumnWidth(2, 53)
+                tableWidget.setColumnWidth(3, 53)
+                tableWidget.setColumnWidth(4, 70)
+                tableWidget.setColumnWidth(5, 70)
+                tableWidget.setColumnWidth(6, 96)
+                tableWidget.setColumnWidth(7, 53)
+                tableWidget.setColumnWidth(8, 53)
+                tableWidget.setColumnWidth(9, 53)
             elif colcount >= 7:
                 tableWidget.setColumnWidth(0, 126)
                 tableWidget.setColumnWidth(1, 90)
@@ -130,11 +130,11 @@ class Window(QtWidgets.QMainWindow):
         self.info1 = [0., 0, 0.]
         self.info2 = [0., 0, 0.]
 
-        self.writer = Worker(windowQ, workerQ, queryQ, stgQ)
-        self.writer.data0.connect(self.UpdateTablewidget)
-        self.writer.data1.connect(self.UpdateGoansimjongmok)
-        self.writer.data2.connect(self.UpdateInfo)
-        self.writer.start()
+        self.worker = Worker(windowQ, workerQ, queryQ, stgQ)
+        self.worker.data0.connect(self.UpdateTablewidget)
+        self.worker.data1.connect(self.UpdateGoansimjongmok)
+        self.worker.data2.connect(self.UpdateInfo)
+        self.worker.start()
 
     def UpdateGoansimjongmok(self, data):
         gsjm = data[1]
