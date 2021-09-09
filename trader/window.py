@@ -1,6 +1,8 @@
 import os
 import sys
 import psutil
+import sqlite3
+import pandas as pd
 from static import *
 from setting import *
 from query import Query
@@ -10,6 +12,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette
 from multiprocessing import Queue, Process
 from worker import Worker
+from strategy import Strategy
 
 
 class Window(QtWidgets.QMainWindow):
@@ -38,14 +41,17 @@ class Window(QtWidgets.QMainWindow):
             tableWidget.setColumnCount(len(columns))
             tableWidget.setRowCount(rowcount)
             tableWidget.setHorizontalHeaderLabels(columns)
-            if colcount >= 7 and columns[-1] == '변동성':
-                tableWidget.setColumnWidth(0, 126)
-                tableWidget.setColumnWidth(1, 80)
-                tableWidget.setColumnWidth(2, 80)
-                tableWidget.setColumnWidth(3, 80)
-                tableWidget.setColumnWidth(4, 80)
-                tableWidget.setColumnWidth(5, 130)
-                tableWidget.setColumnWidth(6, 90)
+            if columns[0] == 'ticker':
+                tableWidget.setColumnWidth(0, 81)
+                tableWidget.setColumnWidth(1, 75)
+                tableWidget.setColumnWidth(2, 45)
+                tableWidget.setColumnWidth(3, 45)
+                tableWidget.setColumnWidth(4, 75)
+                tableWidget.setColumnWidth(5, 75)
+                tableWidget.setColumnWidth(6, 115)
+                tableWidget.setColumnWidth(7, 50)
+                tableWidget.setColumnWidth(8, 50)
+                tableWidget.setColumnWidth(9, 50)
             elif colcount >= 7:
                 tableWidget.setColumnWidth(0, 126)
                 tableWidget.setColumnWidth(1, 90)
@@ -54,8 +60,8 @@ class Window(QtWidgets.QMainWindow):
                 tableWidget.setColumnWidth(4, 90)
                 tableWidget.setColumnWidth(5, 90)
                 tableWidget.setColumnWidth(6, 90)
-            if colcount >= 8:
-                tableWidget.setColumnWidth(7, 90)
+                if colcount >= 8:
+                    tableWidget.setColumnWidth(7, 90)
             return tableWidget
 
         self.setFont(qfont12)
@@ -63,15 +69,17 @@ class Window(QtWidgets.QMainWindow):
 
         self.table_tabWidget = QtWidgets.QTabWidget(self)
         self.td_tab = QtWidgets.QWidget()
+        self.gj_tab = QtWidgets.QWidget()
         self.st_tab = QtWidgets.QWidget()
         self.sg_tab = QtWidgets.QWidget()
 
         self.tt_tableWidget = setTablewidget(self.td_tab, columns_tt, len(columns_tt), 1)
-        self.td_tableWidget = setTablewidget(self.td_tab, columns_td, len(columns_td), 13)
+        self.td_tableWidget = setTablewidget(self.td_tab, columns_td, len(columns_td), 17)
         self.tj_tableWidget = setTablewidget(self.td_tab, columns_tj, len(columns_tj), 1)
-        self.jg_tableWidget = setTablewidget(self.td_tab, columns_jg, len(columns_jg), 13)
-        self.cj_tableWidget = setTablewidget(self.td_tab, columns_cj, len(columns_cj), 12)
-        self.gj_tableWidget = setTablewidget(self.td_tab, columns_gj, len(columns_gj), 12)
+        self.jg_tableWidget = setTablewidget(self.td_tab, columns_jg, len(columns_jg), 17)
+        self.cj_tableWidget = setTablewidget(self.td_tab, columns_cj, len(columns_cj), 17)
+
+        self.gj_tableWidget = setTablewidget(self.gj_tab, columns_gj2, len(columns_gj2), 56)
 
         self.st_groupBox = QtWidgets.QGroupBox(self.st_tab)
         self.calendarWidget = QtWidgets.QCalendarWidget(self.st_groupBox)
@@ -89,21 +97,23 @@ class Window(QtWidgets.QMainWindow):
         self.sgl_tableWidget = setTablewidget(self.sg_tab, columns_lt, len(columns_lt), 54)
 
         self.table_tabWidget.addTab(self.td_tab, '계좌평가')
+        self.table_tabWidget.addTab(self.gj_tab, '관심종목')
         self.table_tabWidget.addTab(self.st_tab, '거래목록')
         self.table_tabWidget.addTab(self.sg_tab, '수익현황')
 
         self.info_label = QtWidgets.QLabel(self)
 
-        self.setGeometry(2056, 0, 692, 1400)
+        self.setGeometry(2040, 0, 692, 1400)
         self.table_tabWidget.setGeometry(5, 5, 682, 1390)
-        self.info_label.setGeometry(220, 1, 400, 30)
+        self.info_label.setGeometry(285, 1, 400, 30)
 
         self.tt_tableWidget.setGeometry(5, 5, 668, 42)
-        self.td_tableWidget.setGeometry(5, 52, 668, 320)
-        self.tj_tableWidget.setGeometry(5, 377, 668, 42)
-        self.jg_tableWidget.setGeometry(5, 424, 668, 320)
-        self.cj_tableWidget.setGeometry(5, 749, 668, 320)
-        self.gj_tableWidget.setGeometry(5, 1074, 668, 282)
+        self.td_tableWidget.setGeometry(5, 52, 668, 415)
+        self.tj_tableWidget.setGeometry(5, 472, 668, 42)
+        self.jg_tableWidget.setGeometry(5, 519, 668, 415)
+        self.cj_tableWidget.setGeometry(5, 939, 668, 415)
+
+        self.gj_tableWidget.setGeometry(5, 5, 668, 1352)
 
         self.st_groupBox.setGeometry(5, 3, 668, 278)
         self.calendarWidget.setGeometry(5, 11, 658, 258)
@@ -117,9 +127,10 @@ class Window(QtWidgets.QMainWindow):
         self.sgt_tableWidget.setGeometry(5, 57, 668, 42)
         self.sgl_tableWidget.setGeometry(5, 104, 668, 1252)
 
-        self.info = [0., 0, 0.]
+        self.info1 = [0., 0, 0.]
+        self.info2 = [0., 0, 0.]
 
-        self.writer = Worker(queryQ)
+        self.writer = Worker(windowQ, workerQ, queryQ, stgQ)
         self.writer.data0.connect(self.UpdateTablewidget)
         self.writer.data1.connect(self.UpdateGoansimjongmok)
         self.writer.data2.connect(self.UpdateInfo)
@@ -149,16 +160,32 @@ class Window(QtWidgets.QMainWindow):
             item = QtWidgets.QTableWidgetItem(ticker)
             item.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             tableWidget.setItem(j, 0, item)
-            for i in [0, 1, 2, 3, 4, 5]:
-                if i < 5:
-                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker][i]).split('.')[0])
-                else:
-                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker][i]))
+            for i, column in enumerate(columns_gj2):
+                if i < 1:
+                    continue
+                if column == 'c':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['현재가'][0]).split('.')[0])
+                elif column == 'per':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['등락율'][0]))
+                elif column == 'hlmp':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['고저평균대비등락율'][0]))
+                elif column == 'sm':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['거래대금'][0]).split('.')[0])
+                elif column == 'avg_sm':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['거래대금'][31]).split('.')[0])
+                elif column == 'dm':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['누적거래대금'][0]).split('.')[0])
+                elif column == 'ch':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['체결강도'][0]))
+                elif column == 'avg_ch':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['체결강도'][31]))
+                elif column == 'hch':
+                    item = QtWidgets.QTableWidgetItem(changeFormat(gsjm[ticker]['최고체결강도'][31]))
                 item.setTextAlignment(Qt.AlignVCenter | Qt.AlignRight)
-                tableWidget.setItem(j, i + 1, item)
+                tableWidget.setItem(j, i, item)
 
-        if len(gsjm) < 12:
-            tableWidget.setRowCount(12)
+        if len(gsjm) < 57:
+            tableWidget.setRowCount(57)
 
     def UpdateTablewidget(self, data):
         gubun = data[0]
@@ -243,7 +270,7 @@ class Window(QtWidgets.QMainWindow):
                 tableWidget.setItem(j, i, item)
 
         if len(df) < 13 and gubun in [ui_num['거래목록'], ui_num['잔고목록'], ui_num['체결목록']]:
-            tableWidget.setRowCount(13)
+            tableWidget.setRowCount(17)
         elif len(df) < 44 and gubun == ui_num['당일상세']:
             tableWidget.setRowCount(44)
         elif len(df) < 54 and gubun == ui_num['누적상세']:
@@ -253,9 +280,14 @@ class Window(QtWidgets.QMainWindow):
         if data[0] == 0:
             self.info_label.setText(data[1])
         elif data[0] == 1:
-            text = f'Process Info - Memory: {self.info[0]}MB, Thread: {self.info[1]}EA, CPU {self.info[2]}%'
+            memory = round(self.info1[0] + self.info2[0], 2)
+            thread = self.info1[1] + self.info2[1]
+            cpu = round(self.info1[2] + self.info2[2], 2)
+            text = f'Process Info - Memory {memory}MB, Thread {thread}EA, CPU {cpu}%'
             self.info_label.setText(text)
             self.GetInfo()
+        elif data[0] == 2:
+            self.info2 = [data[1], data[2], data[3]]
 
     @thread_decorator
     def GetInfo(self):
@@ -263,7 +295,7 @@ class Window(QtWidgets.QMainWindow):
         memory = round(p.memory_info()[0] / 2 ** 20.86, 2)
         thread = p.num_threads()
         cpu = round(p.cpu_percent(interval=2) / 2, 2)
-        self.info = [memory, thread, cpu]
+        self.info1 = [memory, thread, cpu]
 
     def CalendarClicked(self):
         date = self.calendarWidget.selectedDate()
@@ -341,8 +373,9 @@ class Window(QtWidgets.QMainWindow):
 
 
 if __name__ == '__main__':
-    queryQ = Queue()
+    windowQ, workerQ, queryQ, stgQ = Queue(), Queue(), Queue(), Queue()
     Process(target=Query, args=(queryQ,)).start()
+    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stgQ)).start()
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('fusion')
     palette = QPalette()

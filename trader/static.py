@@ -34,6 +34,14 @@ def timedelta_sec(second, std_time=None):
     return next_time
 
 
+def timedelta_hour(hour, std_time=None):
+    if std_time is None:
+        next_time = now() + datetime.timedelta(hours=hour)
+    else:
+        next_time = std_time + datetime.timedelta(hours=hour)
+    return next_time
+
+
 def strp_time(timetype, str_time):
     return datetime.datetime.strptime(str_time, timetype)
 

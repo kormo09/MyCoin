@@ -16,8 +16,8 @@ class BackTesterCoin:
         self.df_tsg = pd.DataFrame(columns=['ticker', 'ttsg'])
 
         self.batting = 1000000  # 종목당 배팅금액
-        self.preper = 9         # 전일 등락율
-        self.avg_period = 2     # 돌파계수 계산용 평균기간
+        self.preper = 10        # 전일등락율
+        self.avg_period = 20    # 돌파계수 계산용 평균기간
         self.fee = 0.           # 0.05%일 경우 0.0005로 설정
 
         self.ticker = None      # 백테스트 중인 티커명
@@ -46,7 +46,7 @@ class BackTesterCoin:
         tcount = len(tickers)
         for k, ticker in enumerate(tickers):
             self.ticker = ticker
-            self.df = pyupbit.get_ohlcv(ticker, count=3000)
+            self.df = pyupbit.get_ohlcv(ticker, count=2000)
             self.df['고가저가폭'] = self.df['high'] - self.df['low']
             self.df['종가시가폭'] = self.df['close'] - self.df['open']
             self.df[['종가시가폭']] = self.df[['종가시가폭']].abs()
@@ -64,6 +64,8 @@ class BackTesterCoin:
             if lasth > self.totalday:
                 self.totalday = lasth
             for h, index in enumerate(list(self.df.index)):
+                if h < self.avg_period:
+                    continue
                 self.index = index
                 self.indexn = h
                 if not self.hold and self.BuyTerm():
@@ -121,14 +123,18 @@ class BackTesterCoin:
 
     def Buy(self):
         k = self.df['고가저가폭'][self.indexn - 1] * self.df['평균돌파계수'][self.indexn - 1]
-        bp = self.df['open'][self.index] + k
-        self.buycount = int(self.batting / bp)
+        self.buyprice = self.df['open'][self.index] + k
+        self.buycount = int(self.batting / self.buyprice)
         if self.buycount == 0:
             return
-        self.buyprice = bp
         self.indexb = self.indexn
         self.hold = True
 
+    def SellTerm(self):
+        self.sellprice = self.df['open'][self.index]
+        return True
+
+    """
     def SellTerm(self):
         k = self.df['고가저가폭'][self.indexn - 1] * self.df['평균돌파계수'][self.indexn - 1]
         low = self.df['open'][self.index] - k
@@ -136,10 +142,11 @@ class BackTesterCoin:
         if self.df['low'][self.index] <= low:
             self.sellprice = low
             return True
-        if self.df['high'][self.index] <= high:
+        if self.df['high'][self.index] >= high:
             self.sellprice = high
             return True
         return False
+    """
 
     def Sell(self, lastcandle=False):
         if lastcandle:
