@@ -43,7 +43,7 @@ class Window(QtWidgets.QMainWindow):
         self.info_label = QtWidgets.QLabel(self)
         self.info_label.setGeometry(105, 1, 500, 30)
 
-        self.worker = Worker(windowQ, tick1Q, tick2Q, tick3Q, tick4Q)
+        self.worker = Worker(windowQ, tickQ)
         self.worker.data.connect(self.UpdateTexedit)
         self.worker.start()
 
@@ -56,8 +56,7 @@ class Window(QtWidgets.QMainWindow):
             self.log.info(f'[{now()}] {msg}')
 
     def UpdateInfo(self, jcps):
-        tickqsize = tick1Q.qsize() + tick2Q.qsize() + tick3Q.qsize() + tick4Q.qsize()
-        label01text = f'Data Received - RTJC {jcps}TICKps, Queue size - tickQ {tickqsize}'
+        label01text = f'Data Received - RTJC {jcps}TICKps, Queue size - tickQ {tickQ.qsize()}'
         self.info_label.setText(label01text)
 
 
@@ -82,13 +81,10 @@ class Query:
 
 
 if __name__ == '__main__':
-    windowQ, queryQ, tick1Q, tick2Q, tick3Q, tick4Q = Queue(), Queue(), Queue(), Queue(), Queue(), Queue()
+    windowQ, queryQ, tickQ = Queue(), Queue(), Queue()
 
     Process(target=Query, args=(windowQ, queryQ), daemon=True).start()
-    Process(target=UpdaterTick, args=(tick1Q, queryQ, windowQ), daemon=True).start()
-    Process(target=UpdaterTick, args=(tick2Q, queryQ, windowQ), daemon=True).start()
-    Process(target=UpdaterTick, args=(tick3Q, queryQ, windowQ), daemon=True).start()
-    Process(target=UpdaterTick, args=(tick4Q, queryQ, windowQ), daemon=True).start()
+    Process(target=UpdaterTick, args=(tickQ, queryQ, windowQ), daemon=True).start()
 
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('fusion')

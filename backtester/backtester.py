@@ -10,10 +10,9 @@ from trader.static import now, strf_time, telegram_msg, timedelta_day
 
 
 class BackTesterTick:
-    def __init__(self, q_, code_list_, df_mt_, num_, high):
+    def __init__(self, q_, code_list_, num_, high):
         self.q = q_
         self.code_list = code_list_
-        self.df_mt = df_mt_
         self.high = high
 
         self.gap_ch = num_[0][0]
@@ -21,15 +20,14 @@ class BackTesterTick:
         self.avgtime = num_[2][0]
         self.selltime = num_[3][0]
         self.chlow = num_[4][0]
-        self.vplow = num_[5][0]
-        self.dmlow = num_[6][0]
-        self.phigh = num_[7][0]
-        self.hlmplow = num_[8][0]
+        self.dmlow = num_[5][0]
+        self.phigh = num_[6][0]
+        self.hlmplow = num_[7][0]
 
         self.batting = 5000000
         self.fee = 0.0000
 
-        self.code = None
+        self.ticker = None
         self.df = None
 
         self.totalcount = 0
@@ -55,9 +53,9 @@ class BackTesterTick:
         conn = sqlite3.connect(db_tick)
         tcount = len(self.code_list)
         int_daylimit = int(strf_time('%Y%m%d', timedelta_day(-14)))
-        for k, code in enumerate(self.code_list):
-            self.code = code
-            self.df = pd.read_sql(f"SELECT * FROM '{code}'", conn)
+        for k, ticker in enumerate(self.code_list):
+            self.ticker = ticker
+            self.df = pd.read_sql(f"SELECT * FROM '{ticker}'", conn)
             self.df = self.df.set_index('index')
             self.df['직전거래대금'] = self.df['거래대금'].shift(1)
             self.df['직전체결강도'] = self.df['체결강도'].shift(1)
@@ -155,7 +153,7 @@ class BackTesterTick:
         else:
             self.totalcount_m += 1
         if self.high:
-            self.q.put([self.code, self.index, eyun])
+            self.q.put([self.index, self.ticker, eyun])
 
     # noinspection PyMethodMayBeStatic
     def GetEyunPer(self, bg, cg):
@@ -170,16 +168,21 @@ class BackTesterTick:
         plus_per = 0.
         if self.totalcount > 0:
             plus_per = round((self.totalcount_p / self.totalcount) * 100, 2)
-            self.q.put([self.code, self.totalcount, self.totalcount_p, self.totalcount_m,
+            self.q.put([self.ticker, self.totalcount, self.totalcount_p, self.totalcount_m,
                         plus_per, self.totalper, self.totaleyun])
         else:
-            self.q.put([self.code, 0, 0, 0, 0., 0., 0])
-        totalcount, totalcount_p, totalcount_m, plus_per, totalper, totaleyun = self.GetTotal(plus_per)
-        print(f" 종목코드 {self.code} | 거래횟수 {totalcount}회 | 익절 {totalcount_p}회 |"
+            self.q.put([self.ticker, 0, 0, 0, 0., 0., 0])
+        ticker, totalcount, totalcount_p, totalcount_m, plus_per, totalper, totaleyun = self.GetTotal(plus_per)
+        print(f" 종목코드 {ticker} | 거래횟수 {totalcount}회 | 익절 {totalcount_p}회 |"
               f" 손절 {totalcount_m}회 | 승률 {plus_per}% | 수익률 {totalper}% |"
               f" 수익금 {totaleyun}원 [{count}/{tcount}]")
 
     def GetTotal(self, plus_per):
+        ticker = self.ticker
+        ticker = ticker + '    ' if len(ticker) == 6 else ticker
+        ticker = ticker + '   ' if len(ticker) == 7 else ticker
+        ticker = ticker + '  ' if len(ticker) == 8 else ticker
+        ticker = ticker + ' ' if len(ticker) == 9 else ticker
         totalcount = str(self.totalcount)
         totalcount = '  ' + totalcount if len(totalcount) == 1 else totalcount
         totalcount = ' ' + totalcount if len(totalcount) == 2 else totalcount
@@ -211,25 +214,23 @@ class BackTesterTick:
             totaleyun = '  ' + totaleyun if len(totaleyun.split(',')[0]) == 4 else totaleyun
         elif len(totaleyun.split(',')) == 3:
             totaleyun = ' ' + totaleyun if len(totaleyun.split(',')[0]) == 1 else totaleyun
-        return totalcount, totalcount_p, totalcount_m, plus_per, totalper, totaleyun
+        return ticker, totalcount, totalcount_p, totalcount_m, plus_per, totalper, totaleyun
 
 
 class Total:
-    def __init__(self, q_, last_, num_, df1_):
+    def __init__(self, q_, last_, num_):
         super().__init__()
         self.q = q_
         self.last = last_
-        self.name = df1_
 
         self.gap_ch = num_[0][0]
         self.gap_sm = num_[1][0]
         self.avgtime = num_[2][0]
         self.selltime = num_[3][0]
         self.chlow = num_[4][0]
-        self.vplow = num_[5][0]
-        self.dmlow = num_[6][0]
-        self.phigh = num_[7][0]
-        self.hlmplow = num_[8][0]
+        self.dmlow = num_[5][0]
+        self.phigh = num_[6][0]
+        self.hlmplow = num_[7][0]
 
         self.Start()
 
@@ -244,11 +245,10 @@ class Total:
         while True:
             data = self.q.get()
             if len(data) == 3:
-                name = self.name['종목명'][data[0]]
                 if data[1] in df_tsg.index:
-                    df_tsg.at[data[1]] = name, df_tsg['ttsg'][data[1]] + data[2]
+                    df_tsg.at[data[0]] = df_tsg['종목명'][data[0]] + ';' + data[1], df_tsg['ttsg'][data[0]] + data[2]
                 else:
-                    df_tsg.at[data[1]] = name, data[2]
+                    df_tsg.at[data[0]] = data[1], data[2]
             else:
                 df_back.at[data[0]] = data[1], data[2], data[3], data[4], data[5], data[6]
                 k += 1
@@ -264,17 +264,17 @@ class Total:
                 pper = round(pc / tc * 100, 2)
                 tsp = round(sum(df_back['수익률']), 2)
                 tsg = int(sum(df_back['수익금']))
-                text = f" 수익금합계 {format(tsg, ',')}원 [{self.gap_ch}, {self.gap_sm}, {self.avgtime}, " \
-                       f" {self.selltime}, {self.chlow}, {self.vplow}, {self.dmlow}, {self.phigh},  {self.hlmplow}]"
-                print(text)
                 df_back = pd.DataFrame(
                     [[tc, pc, mc, pper, tsp, tsg, self.gap_ch, self.gap_sm, self.avgtime, self.selltime,
-                      self.chlow, self.vplow, self.dmlow, self.phigh, self.hlmplow]],
+                      self.chlow, self.dmlow, self.phigh, self.hlmplow]],
                     columns=columns2, index=[strf_time('%H%M%S')]
                 )
                 conn = sqlite3.connect(db_backtest)
                 df_back.to_sql(f"{strf_time('%Y%m%d')}", conn, if_exists='append', chunksize=1000)
                 conn.close()
+            text = f" 수익금합계 {format(tsg, ',')}원 [{self.gap_ch}, {self.gap_sm}, {self.avgtime}, " \
+                   f" {self.selltime}, {self.chlow}, {self.dmlow}, {self.phigh},  {self.hlmplow}]"
+            print(text)
 
         if len(df_tsg) > 0:
             df_tsg['체결시간'] = df_tsg.index
@@ -303,11 +303,11 @@ if __name__ == "__main__":
     start = now()
 
     gap_ch = [1, 10, 1, 0.1]
-    gap_sm = [50, 150, 10, 1]
+    gap_sm = [0, 10000, 1000, 100]
     avgtime = [30, 300, 30, 10]
-    selltime = [1, 5, 1, 1]
+    selltime = [1, 10, 1, 1]
     chlow = [50, 150, 10, 1]
-    dmlow = [0, 20000, 1000, 100]
+    dmlow = [1000000, 100000000, 10000000, 1000000]
     phigh = [25., 15., -1, -1]
     hlmplow = [0., 5., 1, 0.1]
     num = [gap_ch, gap_sm, avgtime, selltime, chlow, dmlow, phigh, hlmplow]

@@ -103,7 +103,7 @@ class Window(QtWidgets.QMainWindow):
 
         self.info_label = QtWidgets.QLabel(self)
 
-        self.setGeometry(2040, 0, 692, 1400)
+        self.setGeometry(2065, 0, 692, 1400)
         self.table_tabWidget.setGeometry(5, 5, 682, 1390)
         self.info_label.setGeometry(285, 1, 400, 30)
 

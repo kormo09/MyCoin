@@ -122,29 +122,7 @@ class Strategy:
                 self.dict_gsjm[ticker].at[self.dict_intg['평균시간'] + 1] = 0, 0., 0., avg_sm, 0, avg_ch, high_ch, d + t
         self.dict_gsjm[ticker].at[0] = c, per, hlmp, sm, dm, ch, 0., d + t
 
-        if self.dict_gsjm[ticker]['체결강도'][self.dict_intg['평균시간']] == 0:
-            return
-        if ticker in self.list_buy:
-            return
-        if injango:
-            return
-        if not uuidnone:
-            return
-
-        if per < 0 or per > self.dict_intg['등락율상한']:
-            return
-        if hlmp < self.dict_intg['고저평균대비등락율하한']:
-            return
-        if dm < self.dict_intg['누적거래대금하한']:
-            return
-        if ch < self.dict_intg['체결강도하한']:
-            return
-        if sm < self.dict_gsjm[ticker]['거래대금'][self.dict_intg['평균시간'] + 1] + self.dict_intg['거래대금차이']:
-            return
-        if ch < self.dict_gsjm[ticker]['체결강도'][self.dict_intg['평균시간'] + 1] + self.dict_intg['체결강도차이']:
-            return
-        if ch < self.dict_gsjm[ticker]['최고체결강도'][self.dict_intg['평균시간'] + 1] - self.dict_intg['체결강도차이']:
-            return
+        # 전략 비공개
 
         oc = int(batting / c)
         if oc > 0:
@@ -157,17 +135,7 @@ class Strategy:
 
         oc = 0
 
-        pch = self.dict_gsjm[ticker]['체결강도'][self.dict_intg['평균시간'] + 1] + self.dict_intg['체결강도차이']
-        mch = self.dict_gsjm[ticker]['최고체결강도'][self.dict_intg['평균시간'] + 1] - self.dict_intg['체결강도차이']
-        if sp <= -2 or (sp >= 3 and ch < pch):
-            oc = jc
-        elif ch < mch and ch < pch:
-            if ticker not in self.dict_csan.keys():
-                self.dict_csan[ticker] = timedelta_sec(int(self.dict_intg['청산시간']))
-            elif now() > self.dict_csan[ticker]:
-                oc = jc
-        elif ticker in self.dict_csan.keys():
-            del self.dict_csan[ticker]
+        # 전략 비공개
 
         if oc > 0:
             self.list_sell.append(ticker)

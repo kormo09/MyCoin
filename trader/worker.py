@@ -231,7 +231,8 @@ class Worker(QThread):
         self.data2.emit([0, f'매매 시스템 체결 알림 - {ticker} {cc}코인 매수'])
         telegram_msg(f'매수 알림 - {ticker} {cp} {cc}')
 
-        df = pd.DataFrame([[ticker, '매수', cc, 0, cp, cp, dt]], columns=columns_cj, index=[dt])
+        idt = strf_time('%Y%m%d%H%M%S%f')
+        df = pd.DataFrame([[ticker, '매수', cc, 0, cp, cp, dt]], columns=columns_cj, index=[idt])
         self.queryQ.put([df, 'chegeollist', 'append'])
         self.queryQ.put([self.df_jg, 'jangolist', 'replace'])
 
@@ -261,9 +262,10 @@ class Worker(QThread):
         telegram_msg(f'매도 알림 - {ticker} {cp} {cc}')
         telegram_msg(f'손익 알림 - 총매수금액 {tbg}, 총매도금액{tsg}, 수익 {tsig}, 손실 {tssg}, 수익급합계 {sg}')
 
-        df = pd.DataFrame([[ticker, '매도', cc, 0, cp, cp, dt]], columns=columns_cj, index=[dt])
+        idt = strf_time('%Y%m%d%H%M%S%f')
+        df = pd.DataFrame([[ticker, '매도', cc, 0, cp, cp, dt]], columns=columns_cj, index=[idt])
         self.queryQ.put([df, 'chegeollist', 'append'])
-        df = pd.DataFrame([[ticker, bp, cp, cc, sp, sg, dt]], columns=columns_td, index=[dt])
+        df = pd.DataFrame([[ticker, bp, cp, cc, sp, sg, dt]], columns=columns_td, index=[idt])
         self.queryQ.put([df, 'tradelist', 'append'])
 
     # noinspection PyMethodMayBeStatic
