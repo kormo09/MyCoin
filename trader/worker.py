@@ -23,6 +23,7 @@ class Worker(QThread):
         self.log.setLevel(logging.INFO)
         filehandler = logging.FileHandler(filename=f"{system_path}/log/S{strf_time('%Y%m%d')}.txt", encoding='utf-8')
         self.log.addHandler(filehandler)
+
         self.windowQ = windowQ
         self.workerQ = workerQ
         self.queryQ = queryQ
@@ -31,21 +32,21 @@ class Worker(QThread):
         self.stg3Q = stg3Q
         self.stg4Q = stg4Q
 
-        self.upbit = None                               # 매도수 주문 및 체결 확인용
+        self.upbit = None                               # 매도수 주문 및 체결 확인용 객체
         self.tickers1 = None                            # 전략 연산 1 프로세스로 보낼 티커 리스트
         self.tickers2 = None                            # 전략 연산 2 프로세스로 보낼 티커 리스트
         self.tickers3 = None                            # 전략 연산 3 프로세스로 보낼 티커 리스트
         self.tickers4 = None                            # 전략 연산 4 프로세스로 보낼 티커 리스트
-        self.buy_uuid = None                            # 매수 주문용
-        self.sell_uuid = None                           # 매도 주문용
+        self.buy_uuid = None                            # 매수 주문 저장용 list: [티커명, uuid]
+        self.sell_uuid = None                           # 매도 주문 저장용 list: [티커명, uuid]
         self.websocketQ = None                          # 실시간데이터 수신용 웹소켓큐
-        self.str_today = strf_time('%Y%m%d', timedelta_hour(-9))
+
         self.df_cj = pd.DataFrame(columns=columns_cj)   # 체결목록
         self.df_jg = pd.DataFrame(columns=columns_jg)   # 잔고목록
         self.df_tj = pd.DataFrame(columns=columns_tj)   # 잔고평가
         self.df_td = pd.DataFrame(columns=columns_td)   # 거래목록
         self.df_tt = pd.DataFrame(columns=columns_tt)   # 실현손익
-        self.dict_gj = {}                               # 관심종목 key: ticker, value: list
+        self.str_today = strf_time('%Y%m%d', timedelta_hour(-9))
         self.dict_intg = {
             '예수금': 0,
             '종목당투자금': 0,                            # 종목당 투자금은 int(예수금 / 최대매수종목수)로 계산
@@ -56,9 +57,9 @@ class Worker(QThread):
             '모의모드': True                             # 모의모드 False 상태시만 주문 전송
         }
         self.dict_time = {
-            '체결확인': now(),
-            '거래정보': now(),
-            '부가정보': now()
+            '체결확인': now(),                           # 1초 마다 체결 확인용
+            '거래정보': now(),                           # UI 갱신용
+            '부가정보': now()                            # UI 갱신용
         }
 
     def run(self):
@@ -69,7 +70,10 @@ class Worker(QThread):
         self.EventLoop()
 
     def LoadDatabase(self):
-        """ 프로그램 구동 시 당일 체결목록, 당일 거래목록, 잔고목록을 불러온다. """
+        """
+        프로그램 구동 시 당일 체결목록, 당일 거래목록, 잔고목록을 불러온다.
+        체결과 거래목록은 바로 갱신하고 잔고목록은 예수금을 불러온 이후 갱신한다.
+        """
         con = sqlite3.connect(db_stg)
         df = pd.read_sql(f"SELECT * FROM chegeollist WHERE 체결시간 LIKE '{self.str_today}%'", con)
         self.df_cj = df.set_index('index').sort_values(by=['체결시간'], ascending=False)
@@ -85,7 +89,10 @@ class Worker(QThread):
             self.data0.emit([ui_num['거래목록'], self.df_td])
 
     def GetKey(self):
-        """ user.txt 파일에서 업비트 access 키와 secret 키를 읽어 self.upbit 객체 생성 """
+        """
+        user.txt 파일에서 업비트 access 키와 secret 키를 읽어 self.upbit 객체 생성
+        해당 객체는 매도수 주문 및 체결확인용이다.
+        """
         f = open('D:/PythonProjects/MyCoin/trader/user.txt')
         lines = f.readlines()
         access_key = lines[0].strip()
@@ -98,16 +105,19 @@ class Worker(QThread):
         if self.dict_bool['모의모드']:
             self.dict_intg['예수금'] = 100000000
         else:
-            self.dict_intg['예수금'] = int(float(self.upbit.get_balances()[0]['balance']))
+            self.dict_intg['예수금'] = int(float(self.upbit.get_balances()[0][0]['balance']))
         self.dict_intg['종목당투자금'] = int(self.dict_intg['예수금'] / self.dict_intg['최대매수종목수'])
 
     def Initialization(self, init=False):
         """
-        프로그램 구동 또는 날짜 변경시 초기화 함수
-        전략 연산 프로세스의 관심종목용 딕셔너리 초기화
-        전일실현손익 저장
-        체결목록, 거래목록, 실현손익 초기화
-        날짜 변경시 실시간 데이터 수신용 웹소켓큐 초기화
+        프로그램 구동 시
+        - 업비트 원화 시장 티커 리스트 불러오기
+        - 전략 연산 프로세스의 관심종목용 딕셔너리 초기화
+        날짜 변경 시
+        - 기존 웹소켓큐 제거
+        - 전일실현손익 저장
+        - 체결목록, 거래목록, 실현손익 초기화
+        실시간 데이터 수신용 웹소켓큐 생성
         """
         tickers = pyupbit.get_tickers(fiat="KRW")
         self.tickers1 = [ticker for i, ticker in enumerate(tickers) if i % 4 == 0]
@@ -133,6 +143,7 @@ class Worker(QThread):
             """
             UI 갱신용 큐를 감시한다.
             4개의 프로세스로 분리된 관심종목 딕셔너리가 합쳐지면 정렬해서 UI 프로세스로 보낸다.
+            리스트 길이 4개짜리는 프로세스 정보 갱신용이다.
             """
             if not self.windowQ.empty():
                 data = self.windowQ.get()
@@ -147,7 +158,10 @@ class Worker(QThread):
                 elif len(data) == 4:
                     self.data2.emit([data[0], data[1], data[2], data[3]])
 
-            """ 주문용 큐를 감시한다. """
+            """
+            주문용 큐를 감시한다.
+            주문용 큐에 대한 입력은 모두 전략 연산 프로세스에서 이뤄진다.
+            """
             if not self.workerQ.empty():
                 data = self.workerQ.get()
                 if data[0] == '매수':
@@ -158,7 +172,7 @@ class Worker(QThread):
             """
             실시간 웹소켓큐로 데이터가 들어오면 등락율과 누적거래대금의 단위를 변경하고
             매수 아이디 목록에 티커명이 있는지, 잔고목록에 티커명이 있는지 확인하여
-            전략 연산 프로세스로 데이터를 보낸다.            
+            전략 연산 프로세스로 데이터를 보낸다.
             """
             data = self.websocketQ.get()
             ticker = data['code']
@@ -171,9 +185,11 @@ class Worker(QThread):
             ask = data['acc_ask_volume']
             d = data['trade_date']
             t = data['trade_time']
+
             uuidnone = self.buy_uuid is None
             injango = ticker in self.df_jg.index
             data = [ticker, c, h, low, per, dm, bid, ask, d, t, uuidnone, injango, self.dict_intg['종목당투자금']]
+
             if ticker in self.tickers1:
                 self.stg1Q.put(data)
             elif ticker in self.tickers2:
@@ -214,6 +230,7 @@ class Worker(QThread):
     해당 변수값이 None이 아닐 경우 get_order 함수로 체결확인을 1초마다 반복실행한다.
     체결이 완료되면 관련목록을 갱신하고 DB에 기록되며 변수값이 다시 None으로 변경된다.
     None으로 변경 진전 전략 연산 프로세스로 체결완료 신호를 보낸다.
+    모든 목록은 갱신될 때마다 쿼리 프로세스로 보내어 DB에 실시간으로 기록된다.
     """
     def Buy(self, ticker, c, oc):
         dt = strf_time('%Y%m%d%H%M%S')
@@ -232,38 +249,6 @@ class Worker(QThread):
             ret = self.upbit.sell_market_order(ticker, oc)
             self.sell_uuid = [ticker, ret[0]['uuid']]
             self.dict_time['체결확인'] = timedelta_sec(1)
-
-    def CheckChegeol(self, ticker, dt):
-        if self.buy_uuid is not None and ticker == self.buy_uuid[0]:
-            ret = self.upbit.get_order(self.buy_uuid[1])
-            if ret is not None and ret['state'] == 'done':
-                cp = ret['price']
-                cc = ret['executed_volume']
-                self.UpdateBuy(ticker, cp, cc, dt)
-                if ticker in self.tickers1:
-                    self.stg1Q.put(['매수완료', ticker])
-                elif ticker in self.tickers2:
-                    self.stg2Q.put(['매수완료', ticker])
-                elif ticker in self.tickers3:
-                    self.stg3Q.put(['매수완료', ticker])
-                elif ticker in self.tickers4:
-                    self.stg4Q.put(['매수완료', ticker])
-                self.buy_uuid = None
-        if self.sell_uuid is not None and ticker == self.sell_uuid[0]:
-            ret = self.upbit.get_order(self.sell_uuid[1])
-            if ret is not None and ret['state'] == 'done':
-                cp = ret['price']
-                cc = ret['executed_volume']
-                self.UpdateSell(ticker, cp, cc, dt)
-                if ticker in self.tickers1:
-                    self.stg1Q.put(['매도완료', ticker])
-                elif ticker in self.tickers2:
-                    self.stg2Q.put(['매도완료', ticker])
-                elif ticker in self.tickers3:
-                    self.stg3Q.put(['매도완료', ticker])
-                elif ticker in self.tickers4:
-                    self.stg4Q.put(['매도완료', ticker])
-                self.sell_uuid = None
 
     def UpdateBuy(self, ticker, cp, cc, dt):
         bg = cp * cc
@@ -341,6 +326,38 @@ class Worker(QThread):
                 self.stg3Q.put(data)
             elif ticker in self.tickers4:
                 self.stg4Q.put(data)
+
+    def CheckChegeol(self, ticker, dt):
+        if self.buy_uuid is not None and ticker == self.buy_uuid[0]:
+            ret = self.upbit.get_order(self.buy_uuid[1])
+            if ret is not None and ret['state'] == 'done':
+                cp = ret['price']
+                cc = ret['executed_volume']
+                self.UpdateBuy(ticker, cp, cc, dt)
+                if ticker in self.tickers1:
+                    self.stg1Q.put(['매수완료', ticker])
+                elif ticker in self.tickers2:
+                    self.stg2Q.put(['매수완료', ticker])
+                elif ticker in self.tickers3:
+                    self.stg3Q.put(['매수완료', ticker])
+                elif ticker in self.tickers4:
+                    self.stg4Q.put(['매수완료', ticker])
+                self.buy_uuid = None
+        if self.sell_uuid is not None and ticker == self.sell_uuid[0]:
+            ret = self.upbit.get_order(self.sell_uuid[1])
+            if ret is not None and ret['state'] == 'done':
+                cp = ret['price']
+                cc = ret['executed_volume']
+                self.UpdateSell(ticker, cp, cc, dt)
+                if ticker in self.tickers1:
+                    self.stg1Q.put(['매도완료', ticker])
+                elif ticker in self.tickers2:
+                    self.stg2Q.put(['매도완료', ticker])
+                elif ticker in self.tickers3:
+                    self.stg3Q.put(['매도완료', ticker])
+                elif ticker in self.tickers4:
+                    self.stg4Q.put(['매도완료', ticker])
+                self.sell_uuid = None
 
     def UpdateTotaljango(self):
         if len(self.df_jg) > 0:
