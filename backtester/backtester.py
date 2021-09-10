@@ -68,7 +68,6 @@ class BackTesterTick:
             self.totalcount_m = 0
             self.totaleyun = 0
             self.totalper = 0.
-            self.ccond = 0
             lasth = len(self.df) - 1
             for h, index in enumerate(self.df.index):
                 if int(index[:8]) < int_daylimit:
@@ -81,35 +80,24 @@ class BackTesterTick:
                     self.Sell()
                 if self.hold and h == lasth:
                     self.Sell(lastcandle=True)
-                    self.ccond = 0
             self.Report(k + 1, tcount)
         conn.close()
 
     def BuyTerm(self):
-        if self.ccond < self.avgtime:
+        try:
+            if self.df['거래대금평균'][self.index] == 0:
+                return False
+        except ValueError:
             return False
 
-        if self.df['현재가'][self.index] < self.df['시가'][self.index]:
-            return False
-        if self.df['등락율'][self.index] < 0 or self.df['등락율'][self.index] > self.phigh:
-            return False
-        if self.df['고저평균대비등락율'][self.index] < self.hlmplow:
-            return False
-        if self.df['누적거래대금'][self.index] < self.dmlow:
-            return False
-        if self.df['체결강도'][self.index] < self.chlow:
-            return False
+        # 전략 비공개
 
-        if self.df['거래대금'][self.index] < self.df['거래대금평균'][self.index] + self.gap_sm:
-            return False
-        if self.df['체결강도'][self.index] < self.df['체결강도평균'][self.index] + self.gap_ch:
-            return False
-        if self.df['체결강도'][self.index] < self.df['최고체결강도'][self.index] - self.gap_ch:
-            return False
         return True
 
     def Buy(self):
-        self.buycount = round(self.df['현재가'][self.index] / self.batting)
+        self.buycount = int(self.df['현재가'][self.index] / self.batting)
+        if self.buycount == 0:
+            return
         self.buyprice = round(self.df['현재가'][self.index] / self.buycount, 2)
         self.hold = True
         self.indexb = self.indexn
@@ -123,16 +111,8 @@ class BackTesterTick:
         cg = self.buycount * self.df['현재가'][self.index]
         eyun, per = self.GetEyunPer(bg, cg)
 
-        if per <= -2 or \
-                (per >= 3 and self.df['체결강도'][self.index] < self.df['체결강도평균'][self.index] + self.gap_ch):
-            return True
-        if self.df['체결강도'][self.index] < self.df['최고체결강도'][self.index] - self.gap_ch and \
-                self.df['체결강도'][self.index] < self.df['체결강도평균'][self.index] + self.gap_ch:
-            self.csell += 1
-        else:
-            self.csell = 0
-        if self.csell >= self.selltime:
-            return True
+        # 전략 비공개
+
         return False
 
     def Sell(self, lastcandle=False):
@@ -157,9 +137,9 @@ class BackTesterTick:
 
     # noinspection PyMethodMayBeStatic
     def GetEyunPer(self, bg, cg):
-        sfee = cg * self.fee
         bfee = bg * self.fee
-        pg = int(cg - sfee - bfee)
+        sfee = cg * self.fee
+        pg = int(cg - bfee - sfee)
         eyun = pg - bg
         per = round(eyun / bg * 100, 2)
         return eyun, per
@@ -238,7 +218,7 @@ class Total:
         columns1 = ['거래횟수', '익절', '손절', '승률', '수익률', '수익금']
         columns2 = ['거래횟수', '익절', '손절', '승률', '수익률합계', '수익금합계',
                     '체결강도차이', '거래대금차이', '평균시간', '청산시간', '체결강도하한',
-                    '전일거래량대비하한', '누적거래대금하한', '등락율상한', '고저평균대비등락율하한']
+                    '누적거래대금하한', '등락율상한', '고저평균대비등락율하한']
         df_back = pd.DataFrame(columns=columns1)
         df_tsg = pd.DataFrame(columns=['종목명', 'ttsg'])
         k = 0
@@ -302,9 +282,9 @@ class Total:
 if __name__ == "__main__":
     start = now()
 
-    gap_ch = [1, 10, 1, 0.1]
-    gap_sm = [0, 10000, 1000, 100]
-    avgtime = [30, 300, 30, 10]
+    gap_ch = [0.1, 1, 0.1, 0.1]
+    gap_sm = [0, 1000, 100, 10]
+    avgtime = [600, 6000, 60, 10]
     selltime = [1, 10, 1, 1]
     chlow = [50, 150, 10, 1]
     dmlow = [1000000, 100000000, 10000000, 1000000]
