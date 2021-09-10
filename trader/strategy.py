@@ -17,7 +17,7 @@ class Strategy:
         self.list_buy = []
         self.list_sell = []
         self.dict_csan = {}     # key: 종목코드, value: datetime
-        self.dict_gsjm = {}     # key: 종목코드, value: 10시이전 DataFrame, 10시이후 list
+        self.dict_gsjm = {}     # key: 종목코드, value: DataFrame
         self.dict_intg = {
             '체결강도차이': 0.,
             '거래대금차이': 0,
@@ -71,6 +71,7 @@ class Strategy:
 
     def UpdateList(self, gubun, ticker):
         if '관심종목초기화' in gubun:
+            self.dict_gsjm = {}
             for tick in ticker:
                 data = np.zeros((self.dict_intg['평균시간'] + 2, len(columns_gj1))).tolist()
                 df = pd.DataFrame(data, columns=columns_gj1)
