@@ -17,7 +17,7 @@ class Worker(QThread):
     data1 = QtCore.pyqtSignal(list)
     data2 = QtCore.pyqtSignal(list)
 
-    def __init__(self, windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q):
+    def __init__(self, windowQ, workerQ, queryQ, soundQ, stg1Q, stg2Q, stg3Q, stg4Q):
         super().__init__()
         self.log = logging.getLogger('Worker')
         self.log.setLevel(logging.INFO)
@@ -27,6 +27,7 @@ class Worker(QThread):
         self.windowQ = windowQ
         self.workerQ = workerQ
         self.queryQ = queryQ
+        self.soundQ = soundQ
         self.stg1Q = stg1Q
         self.stg2Q = stg2Q
         self.stg3Q = stg3Q
@@ -258,8 +259,10 @@ class Worker(QThread):
         self.df_cj.at[dt] = ticker, '매수', cc, 0, cp, cp, dt
 
         self.data0.emit([ui_num['체결목록'], self.df_cj])
-        self.log.info(f'[{now()}] 매매 시스템 체결 알림 - {ticker} {cc}코인 매수')
-        self.data2.emit([0, f'매매 시스템 체결 알림 - {ticker} {cc}코인 매수'])
+        text = f'매매 시스템 체결 알림 - {ticker} {cc}코인 매수'
+        self.log.info(f'[{now()}] {text}')
+        self.data2.emit([0, text])
+        self.soundQ.put(f'{ticker} {cc}코인을 매수하였습니다.')
         telegram_msg(f'매수 알림 - {ticker} {cp} {cc}')
 
         idt = strf_time('%Y%m%d%H%M%S%f')
@@ -288,8 +291,10 @@ class Worker(QThread):
         self.data0.emit([ui_num['체결목록'], self.df_cj])
         self.data0.emit([ui_num['거래목록'], self.df_td])
         self.data0.emit([ui_num['거래합계'], self.df_tt])
-        self.log.info(f'[{now()}] 매매 시스템 체결 알림 - {ticker} {bp}코인 매도')
-        self.data2.emit([0, f'매매 시스템 체결 알림 - {ticker} {bp}코인 매도'])
+        text = f'매매 시스템 체결 알림 - {ticker} {bp}코인 매도'
+        self.log.info(f'[{now()}] {text}')
+        self.data2.emit([0, text])
+        self.soundQ.put(f'{ticker} {cc}코인을 매도하였습니다.')
         telegram_msg(f'매도 알림 - {ticker} {cp} {cc}')
         telegram_msg(f'손익 알림 - 총매수금액 {tbg}, 총매도금액{tsg}, 수익 {tsig}, 손실 {tssg}, 수익급합계 {sg}')
 

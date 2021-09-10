@@ -11,6 +11,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette
 from multiprocessing import Queue, Process
+from sound import Sound
 from worker import Worker
 from strategy import Strategy
 
@@ -133,7 +134,7 @@ class Window(QtWidgets.QMainWindow):
         self.info4 = [0., 0, 0.]
         self.info5 = [0., 0, 0.]
 
-        self.worker = Worker(windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q)
+        self.worker = Worker(windowQ, workerQ, queryQ, soundQ, stg1Q, stg2Q, stg3Q, stg4Q)
         self.worker.data0.connect(self.UpdateTablewidget)
         self.worker.data1.connect(self.UpdateGoansimjongmok)
         self.worker.data2.connect(self.UpdateInfo)
@@ -382,8 +383,10 @@ class Window(QtWidgets.QMainWindow):
 
 
 if __name__ == '__main__':
-    windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q = Queue(), Queue(), Queue(), Queue(), Queue(), Queue(), Queue()
+    windowQ, workerQ, queryQ, soundQ, stg1Q, stg2Q, stg3Q, stg4Q = \
+        Queue(), Queue(), Queue(), Queue(), Queue(), Queue(), Queue(), Queue()
     Process(target=Query, args=(queryQ,)).start()
+    Process(target=Sound, args=(soundQ,)).start()
     Process(target=Strategy, args=(2, windowQ, workerQ, queryQ, stg1Q)).start()
     Process(target=Strategy, args=(3, windowQ, workerQ, queryQ, stg2Q)).start()
     Process(target=Strategy, args=(4, windowQ, workerQ, queryQ, stg3Q)).start()
