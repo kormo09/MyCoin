@@ -17,7 +17,7 @@ class Worker(QThread):
     data1 = QtCore.pyqtSignal(list)
     data2 = QtCore.pyqtSignal(list)
 
-    def __init__(self, windowQ, workerQ, queryQ, stgQ):
+    def __init__(self, windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q):
         super().__init__()
         self.log = logging.getLogger('Worker')
         self.log.setLevel(logging.INFO)
@@ -26,10 +26,16 @@ class Worker(QThread):
         self.windowQ = windowQ
         self.workerQ = workerQ
         self.queryQ = queryQ
-        self.stgQ = stgQ
+        self.stg1Q = stg1Q
+        self.stg2Q = stg2Q
+        self.stg3Q = stg3Q
+        self.stg4Q = stg4Q
 
         self.upbit = None                               # 매도수 주문 및 체결 확인용
-        self.tickers = None                             # 관심종목 티커 리스트
+        self.tickers1 = None                            # 전략 연산 1 프로세스로 보낼 티커 리스트
+        self.tickers2 = None                            # 전략 연산 2 프로세스로 보낼 티커 리스트
+        self.tickers3 = None                            # 전략 연산 3 프로세스로 보낼 티커 리스트
+        self.tickers4 = None                            # 전략 연산 4 프로세스로 보낼 티커 리스트
         self.buy_uuid = None                            # 매수 주문용
         self.sell_uuid = None                           # 매도 주문용
         self.websocketQ = None                          # 실시간데이터 수신용 웹소켓큐
@@ -74,9 +80,9 @@ class Worker(QThread):
         con.close()
 
         if len(self.df_cj) > 0:
-            self.data0.emit([ui_num['체결목록'], self.dict_df['체결목록']])
+            self.data0.emit([ui_num['체결목록'], self.df_cj])
         if len(self.df_td) > 0:
-            self.data0.emit([ui_num['거래목록'], self.dict_df['거래목록']])
+            self.data0.emit([ui_num['거래목록'], self.df_td])
 
     def GetKey(self):
         """ user.txt 파일에서 업비트 access 키와 secret 키를 읽어 self.upbit 객체 생성 """
@@ -102,23 +108,37 @@ class Worker(QThread):
         전일실현손익 저장
         체결목록, 거래목록, 실현손익 초기화
         """
-        self.tickers = pyupbit.get_tickers(fiat="KRW")
-        self.stgQ.put(['관심종목초기화', self.tickers])
+        tickers = pyupbit.get_tickers(fiat="KRW")
+        self.tickers1 = [ticker for i, ticker in enumerate(tickers) if i % 4 == 0]
+        self.tickers2 = [ticker for i, ticker in enumerate(tickers) if i % 4 == 1]
+        self.tickers3 = [ticker for i, ticker in enumerate(tickers) if i % 4 == 2]
+        self.tickers4 = [ticker for i, ticker in enumerate(tickers) if i % 4 == 3]
+        self.stg1Q.put(['관심종목초기화', self.tickers1])
+        self.stg2Q.put(['관심종목초기화', self.tickers2])
+        self.stg3Q.put(['관심종목초기화', self.tickers3])
+        self.stg4Q.put(['관심종목초기화', self.tickers4])
         if init:
             self.websocketQ.terminate()
             self.queryQ.put([self.df_tt, 'totaltradelist', 'append'])
             self.df_cj = pd.DataFrame(columns=columns_cj)
             self.df_td = pd.DataFrame(columns=columns_td)
             self.df_tt = pd.DataFrame(columns=columns_tt)
-        self.websocketQ = WebSocketManager('ticker', self.tickers)
+        self.websocketQ = WebSocketManager('ticker', tickers)
 
     def EventLoop(self):
+        dict_count = 0
+        dict_gsjm = {}
         while True:
             """ UI 갱신용 큐를 감시한다. """
             if not self.windowQ.empty():
                 data = self.windowQ.get()
                 if len(data) == 2:
-                    self.data1.emit([data[0], data[1]])
+                    dict_count += 1
+                    dict_gsjm.update(data[1])
+                    if dict_count == 4:
+                        self.data1.emit([data[0], dict_gsjm])
+                        dict_gsjm = {}
+                        dict_count = 0
                 elif len(data) == 4:
                     self.data2.emit([data[0], data[1], data[2], data[3]])
 
@@ -148,8 +168,15 @@ class Worker(QThread):
             t = data['trade_time']
             uuidnone = True if self.buy_uuid is None else False
             injango = True if ticker in self.df_jg.index else False
-            self.stgQ.put([ticker, c, h, low, per, dm, bid, ask, d, t,
-                           uuidnone, injango, self.dict_intg['종목당투자금']])
+            data = [ticker, c, h, low, per, dm, bid, ask, d, t, uuidnone, injango, self.dict_intg['종목당투자금']]
+            if ticker in self.tickers1:
+                self.stg1Q.put(data)
+            elif ticker in self.tickers2:
+                self.stg2Q.put(data)
+            elif ticker in self.tickers3:
+                self.stg3Q.put(data)
+            elif ticker in self.tickers4:
+                self.stg4Q.put(data)
 
             """ 잔고목록 갱신 및 매도조건 확인 """
             if injango:
@@ -208,7 +235,14 @@ class Worker(QThread):
                 cp = ret['price']
                 cc = ret['executed_volume']
                 self.UpdateBuy(ticker, cp, cc, dt)
-                self.stgQ.put(['매수완료', ticker])
+                if ticker in self.tickers1:
+                    self.stg1Q.put(['매수완료', ticker])
+                elif ticker in self.tickers2:
+                    self.stg2Q.put(['매수완료', ticker])
+                elif ticker in self.tickers3:
+                    self.stg3Q.put(['매수완료', ticker])
+                elif ticker in self.tickers4:
+                    self.stg4Q.put(['매수완료', ticker])
                 self.buy_uuid = None
         if self.sell_uuid is not None and ticker == self.sell_uuid[0]:
             ret = self.upbit.get_order(self.sell_uuid[1])
@@ -216,7 +250,14 @@ class Worker(QThread):
                 cp = ret['price']
                 cc = ret['executed_volume']
                 self.UpdateSell(ticker, cp, cc, dt)
-                self.stgQ.put(['매도완료', ticker])
+                if ticker in self.tickers1:
+                    self.stg1Q.put(['매도완료', ticker])
+                elif ticker in self.tickers2:
+                    self.stg2Q.put(['매도완료', ticker])
+                elif ticker in self.tickers3:
+                    self.stg3Q.put(['매도완료', ticker])
+                elif ticker in self.tickers4:
+                    self.stg4Q.put(['매도완료', ticker])
                 self.sell_uuid = None
 
     def UpdateBuy(self, ticker, cp, cc, dt):
@@ -267,6 +308,7 @@ class Worker(QThread):
         self.queryQ.put([df, 'chegeollist', 'append'])
         df = pd.DataFrame([[ticker, bp, cp, cc, sp, sg, dt]], columns=columns_td, index=[idt])
         self.queryQ.put([df, 'tradelist', 'append'])
+        self.queryQ.put([self.df_jg, 'jangolist', 'replace'])
 
     # noinspection PyMethodMayBeStatic
     def GetPgSgSp(self, bg, cg):
@@ -285,7 +327,15 @@ class Worker(QThread):
             pg, sg, sp = self.GetPgSgSp(bg, jc * c)
             columns = ['현재가', '수익률', '평가손익', '평가금액']
             self.df_jg.at[ticker, columns] = c, sp, sg, pg
-            self.stgQ.put([ticker, sp, jc, ch, c])
+            data = [ticker, sp, jc, ch, c]
+            if ticker in self.tickers1:
+                self.stg1Q.put(data)
+            elif ticker in self.tickers2:
+                self.stg2Q.put(data)
+            elif ticker in self.tickers3:
+                self.stg3Q.put(data)
+            elif ticker in self.tickers4:
+                self.stg4Q.put(data)
 
     def UpdateTotaljango(self):
         if len(self.df_jg) > 0:

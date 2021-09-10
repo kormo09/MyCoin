@@ -130,7 +130,7 @@ class Window(QtWidgets.QMainWindow):
         self.info1 = [0., 0, 0.]
         self.info2 = [0., 0, 0.]
 
-        self.worker = Worker(windowQ, workerQ, queryQ, stgQ)
+        self.worker = Worker(windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q)
         self.worker.data0.connect(self.UpdateTablewidget)
         self.worker.data1.connect(self.UpdateGoansimjongmok)
         self.worker.data2.connect(self.UpdateInfo)
@@ -373,9 +373,12 @@ class Window(QtWidgets.QMainWindow):
 
 
 if __name__ == '__main__':
-    windowQ, workerQ, queryQ, stgQ = Queue(), Queue(), Queue(), Queue()
+    windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q = Queue(), Queue(), Queue(), Queue(), Queue(), Queue(), Queue()
     Process(target=Query, args=(queryQ,)).start()
-    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stgQ)).start()
+    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg1Q)).start()
+    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg2Q)).start()
+    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg3Q)).start()
+    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg4Q)).start()
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('fusion')
     palette = QPalette()

@@ -91,7 +91,6 @@ class BackTesterTick:
             return False
 
         # 전략 비공개
-
         return True
 
     def Buy(self):
@@ -112,7 +111,6 @@ class BackTesterTick:
         eyun, per = self.GetEyunPer(bg, cg)
 
         # 전략 비공개
-
         return False
 
     def Sell(self, lastcandle=False):

@@ -1,5 +1,4 @@
 import os
-import time
 import psutil
 import sqlite3
 import numpy as np
@@ -38,23 +37,7 @@ class Strategy:
             '부가정보': now()
         }
 
-        self.CreateDatabase()
         self.Start()
-
-    def CreateDatabase(self):
-        con = sqlite3.connect(db_stg)
-        df = pd.read_sql("SELECT name FROM sqlite_master WHERE TYPE = 'table'", con)
-        table_list = df['name'].values
-        con.close()
-
-        if 'setting' not in table_list:
-            df = pd.DataFrame(
-                [[3.0, 62, 30, 1, 90, 0, 25., 0.1]],
-                columns=['체결강도차이', '거래대금차이', '평균시간', '청산시간', '체결강도하한',
-                         '누적거래대금하한', '등락율상한', '고저평균대비등락율하한'],
-                index=[0])
-            self.queryQ.put([df, 'setting', 'replace'])
-        time.sleep(2)
 
     def Start(self):
         con = sqlite3.connect(db_stg)
