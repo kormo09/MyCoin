@@ -37,7 +37,7 @@ class UpdaterTick:
                 index=[dt]
             )
         else:
-            predm = self.dict_df[ticker]['누적거래대금'][0]
+            predm = self.dict_df[ticker]['누적거래대금'][-1]
             sm = dm - predm
             self.dict_df[ticker].at[dt] = c, h, per, hlmp, sm, dm, ch
 
