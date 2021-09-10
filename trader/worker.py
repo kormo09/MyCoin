@@ -129,13 +129,17 @@ class Worker(QThread):
         dict_count = 0
         dict_gsjm = {}
         while True:
-            """ UI 갱신용 큐를 감시한다. """
+            """
+            UI 갱신용 큐를 감시한다.
+            4개의 프로세스로 분리된 관심종목 딕셔너리가 합쳐지면 정렬해서 UI 프로세스로 보낸다.
+            """
             if not self.windowQ.empty():
                 data = self.windowQ.get()
                 if len(data) == 2:
                     dict_count += 1
                     dict_gsjm.update(data[1])
                     if dict_count == 4:
+                        sorted(dict_gsjm)
                         self.data1.emit([data[0], dict_gsjm])
                         dict_gsjm = {}
                         dict_count = 0
