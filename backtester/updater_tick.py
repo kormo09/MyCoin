@@ -14,8 +14,9 @@ class UpdaterTick:
         self.queryQ = queryQ
         self.windowQ = windowQ
 
-        self.dict_df = {}
-        self.time_info = timedelta_sec(60)
+        self.dict_df = {}                   # 틱데이터 저장용 딕셔너리 key: ticker, value: datafame
+        self.dict_last_dm = {}              # 직전 누적거래대금 저장용
+        self.time_info = timedelta_sec(60)  # 틱데이터 저장주기
         self.Start()
 
     def Start(self):
@@ -28,18 +29,19 @@ class UpdaterTick:
         hlm = round((h + low) / 2)
         hlmp = round((c / hlm - 1) * 100, 2)
         ch = round(bid / ask * 100, 2)
-        dt = d + t
-        if ticker not in self.dict_df.keys():
+        try:
+            sm = dm - self.dict_last_dm[ticker]
+        except KeyError:
             sm = 0
+        if ticker not in self.dict_df.keys():
             self.dict_df[ticker] = pd.DataFrame(
                 [[c, h, per, hlmp, sm, dm, ch]],
                 columns=['현재가', '고가', '등락율', '고저평균대비등락율', '거래대금', '누적거래대금', '체결강도'],
-                index=[dt]
+                index=[d + t]
             )
         else:
-            predm = self.dict_df[ticker]['누적거래대금'][-1]
-            sm = dm - predm
-            self.dict_df[ticker].at[dt] = c, h, per, hlmp, sm, dm, ch
+            self.dict_df[ticker].at[d + t] = c, h, per, hlmp, sm, dm, ch
+            self.dict_last_dm[ticker] = dm
 
         if now() > self.time_info:
             gap = (now() - receiv_time).total_seconds()
