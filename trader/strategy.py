@@ -105,6 +105,15 @@ class Strategy:
                 self.dict_gsjm[ticker].at[self.dict_intg['평균시간'] + 1] = 0, 0., 0., avg_sm, 0, avg_ch, high_ch, d + t
         self.dict_gsjm[ticker].at[0] = c, per, hlmp, sm, dm, ch, 0., d + t
 
+        if self.dict_gsjm[ticker]['체결강도'][self.dict_intg['평균시간']] == 0:
+            return
+        if ticker in self.list_buy:
+            return
+        if injango:
+            return
+        if not uuidnone:
+            return
+
         # 전략 비공개
 
         oc = int(batting / c)

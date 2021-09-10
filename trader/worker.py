@@ -107,6 +107,7 @@ class Worker(QThread):
         전략 연산 프로세스의 관심종목용 딕셔너리 초기화
         전일실현손익 저장
         체결목록, 거래목록, 실현손익 초기화
+        날짜 변경시 실시간 데이터 수신용 웹소켓큐 초기화
         """
         tickers = pyupbit.get_tickers(fiat="KRW")
         self.tickers1 = [ticker for i, ticker in enumerate(tickers) if i % 4 == 0]
@@ -170,8 +171,8 @@ class Worker(QThread):
             ask = data['acc_ask_volume']
             d = data['trade_date']
             t = data['trade_time']
-            uuidnone = True if self.buy_uuid is None else False
-            injango = True if ticker in self.df_jg.index else False
+            uuidnone = self.buy_uuid is None
+            injango = ticker in self.df_jg.index
             data = [ticker, c, h, low, per, dm, bid, ask, d, t, uuidnone, injango, self.dict_intg['종목당투자금']]
             if ticker in self.tickers1:
                 self.stg1Q.put(data)
@@ -187,7 +188,7 @@ class Worker(QThread):
                 ch = round(bid / ask * 100, 2)
                 self.UpdateJango(ticker, c, ch)
 
-            """ 날짜 변경시 날짜변수 갱신 및 각종목록 초기화 """
+            """ 날짜 변경시 날짜변수 갱신, 각종목록 및 웹소켓큐 초기화 """
             if d != self.str_today:
                 self.str_today = d
                 self.Initialization(init=True)
@@ -212,7 +213,7 @@ class Worker(QThread):
     실매매 시 매도수 아이디 및 티커명을 매도, 매수 구분하여 변수에 저장하고
     해당 변수값이 None이 아닐 경우 get_order 함수로 체결확인을 1초마다 반복실행한다.
     체결이 완료되면 관련목록을 갱신하고 DB에 기록되며 변수값이 다시 None으로 변경된다.
-    None으로 변경 진적 전략 연산 프로세스로 매매완료 신호를 보낸다.
+    None으로 변경 진전 전략 연산 프로세스로 체결완료 신호를 보낸다.
     """
     def Buy(self, ticker, c, oc):
         dt = strf_time('%Y%m%d%H%M%S')

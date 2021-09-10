@@ -24,8 +24,8 @@ class BackTesterTick:
         self.phigh = num_[6][0]
         self.hlmplow = num_[7][0]
 
-        self.batting = 5000000
-        self.fee = 0.0000
+        self.batting = 1000000
+        self.fee = 0.
 
         self.ticker = None
         self.df = None
@@ -41,7 +41,6 @@ class BackTesterTick:
         self.buyprice = 0
         self.sellprice = 0
         self.index = 0
-        self.indexb = 0
 
         self.indexn = 0
         self.ccond = 0
@@ -70,43 +69,36 @@ class BackTesterTick:
             self.totalper = 0.
             lasth = len(self.df) - 1
             for h, index in enumerate(self.df.index):
-                if int(index[:8]) < int_daylimit:
+                if int(index[:8]) < int_daylimit or h < self.avgtime:
                     continue
                 self.index = index
                 self.indexn = h
-                if not self.hold and self.BuyTerm():
+                if not self.hold and h != lasth and self.BuyTerm():
                     self.Buy()
-                elif self.hold and self.SellTerm():
+                elif self.hold and h != lasth and self.SellTerm():
                     self.Sell()
                 if self.hold and h == lasth:
-                    self.Sell(lastcandle=True)
+                    self.Sell()
             self.Report(k + 1, tcount)
         conn.close()
 
     def BuyTerm(self):
-        try:
-            if self.df['거래대금평균'][self.index] == 0:
-                return False
-        except ValueError:
-            return False
 
         # 전략 비공개
 
         return True
 
     def Buy(self):
-        self.buycount = int(self.df['현재가'][self.index] / self.batting)
+        self.buycount = int(self.batting / self.df['현재가'][self.index])
         if self.buycount == 0:
             return
-        self.buyprice = round(self.df['현재가'][self.index] / self.buycount, 2)
+        self.buyprice = self.df['현재가'][self.index]
         self.hold = True
-        self.indexb = self.indexn
         self.csell = 0
 
     def SellTerm(self):
-        if self.df['등락율'][self.index] > 29:
-            return True
-
+        if self.index == self.df.index[self.indexn - 1] or self.index == self.df.index[self.indexn + 1]:
+            return False
         bg = self.buycount * self.buyprice
         cg = self.buycount * self.df['현재가'][self.index]
         eyun, per = self.GetEyunPer(bg, cg)
@@ -115,9 +107,8 @@ class BackTesterTick:
 
         return False
 
-    def Sell(self, lastcandle=False):
-        if lastcandle:
-            self.sellprice = self.df['현재가'][self.index]
+    def Sell(self):
+        self.sellprice = self.df['현재가'][self.index]
         self.hold = False
         self.CalculationEyun()
 
@@ -282,12 +273,12 @@ class Total:
 if __name__ == "__main__":
     start = now()
 
-    gap_ch = [0.1, 1, 0.1, 0.1]
-    gap_sm = [0, 1000, 100, 10]
-    avgtime = [600, 6000, 60, 10]
-    selltime = [1, 10, 1, 1]
-    chlow = [50, 150, 10, 1]
-    dmlow = [1000000, 100000000, 10000000, 1000000]
+    gap_ch = [1, 10, 1, 0.1]
+    gap_sm = [0, 1000000, 100000, 10000]
+    avgtime = [30, 600, 30, 30]
+    selltime = [1, 5, 1, 1]
+    chlow = [0, 150, 10, 1]
+    dmlow = [0, 10000000, 1000000, 100000]
     phigh = [25., 15., -1, -1]
     hlmplow = [0., 5., 1, 0.1]
     num = [gap_ch, gap_sm, avgtime, selltime, chlow, dmlow, phigh, hlmplow]
@@ -300,7 +291,7 @@ if __name__ == "__main__":
     last = len(table_list)
 
     q = Queue()
-    ttsg = -100000000
+    ttsg = -1000000000
     high_var = num[0][0]
     ogin_var = num[0][0]
 
