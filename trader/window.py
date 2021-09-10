@@ -129,6 +129,9 @@ class Window(QtWidgets.QMainWindow):
 
         self.info1 = [0., 0, 0.]
         self.info2 = [0., 0, 0.]
+        self.info3 = [0., 0, 0.]
+        self.info4 = [0., 0, 0.]
+        self.info5 = [0., 0, 0.]
 
         self.worker = Worker(windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q)
         self.worker.data0.connect(self.UpdateTablewidget)
@@ -280,14 +283,20 @@ class Window(QtWidgets.QMainWindow):
         if data[0] == 0:
             self.info_label.setText(data[1])
         elif data[0] == 1:
-            memory = round(self.info1[0] + self.info2[0], 2)
-            thread = self.info1[1] + self.info2[1]
-            cpu = round(self.info1[2] + self.info2[2], 2)
-            text = f'Process Info - Memory {memory}MB, Thread {thread}EA, CPU {cpu}%'
+            memory = round(self.info1[0] + self.info2[0] + self.info3[0] + self.info4[0], 2)
+            thread = self.info1[1] + self.info2[1] + self.info3[1] + self.info4[1]
+            cpu = round(self.info1[2] + self.info2[2] + self.info3[2] + self.info4[2], 2)
+            text = f'Total Process - Memory {memory}MB | Thread {thread}EA | CPU {cpu}%'
             self.info_label.setText(text)
             self.GetInfo()
         elif data[0] == 2:
             self.info2 = [data[1], data[2], data[3]]
+        elif data[0] == 3:
+            self.info3 = [data[1], data[2], data[3]]
+        elif data[0] == 4:
+            self.info4 = [data[1], data[2], data[3]]
+        elif data[0] == 5:
+            self.info5 = [data[1], data[2], data[3]]
 
     @thread_decorator
     def GetInfo(self):
@@ -375,10 +384,10 @@ class Window(QtWidgets.QMainWindow):
 if __name__ == '__main__':
     windowQ, workerQ, queryQ, stg1Q, stg2Q, stg3Q, stg4Q = Queue(), Queue(), Queue(), Queue(), Queue(), Queue(), Queue()
     Process(target=Query, args=(queryQ,)).start()
-    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg1Q)).start()
-    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg2Q)).start()
-    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg3Q)).start()
-    Process(target=Strategy, args=(windowQ, workerQ, queryQ, stg4Q)).start()
+    Process(target=Strategy, args=(2, windowQ, workerQ, queryQ, stg1Q)).start()
+    Process(target=Strategy, args=(3, windowQ, workerQ, queryQ, stg2Q)).start()
+    Process(target=Strategy, args=(4, windowQ, workerQ, queryQ, stg3Q)).start()
+    Process(target=Strategy, args=(5, windowQ, workerQ, queryQ, stg4Q)).start()
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('fusion')
     palette = QPalette()

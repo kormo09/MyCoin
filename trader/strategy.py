@@ -8,7 +8,8 @@ from static import now, timedelta_sec, thread_decorator
 
 
 class Strategy:
-    def __init__(self, windowQ, workerQ, queryQ, stgQ):
+    def __init__(self, gubun, windowQ, workerQ, queryQ, stgQ):
+        self.gubun = gubun
         self.windowQ = windowQ
         self.workerQ = workerQ
         self.queryQ = queryQ
@@ -136,7 +137,7 @@ class Strategy:
 
     @thread_decorator
     def UpdateInfo(self):
-        info = [2, self.dict_intg['메모리'], self.dict_intg['스레드'], self.dict_intg['시피유']]
+        info = [self.gubun, self.dict_intg['메모리'], self.dict_intg['스레드'], self.dict_intg['시피유']]
         self.windowQ.put(info)
         self.UpdateSysinfo()
 
