@@ -33,7 +33,6 @@ class UpdaterTick:
             sm = dm - self.dict_last_dm[ticker]
         except KeyError:
             sm = 0
-        self.dict_last_dm[ticker] = dm
         if ticker not in self.dict_df.keys():
             self.dict_df[ticker] = pd.DataFrame(
                 [[c, h, per, hlmp, sm, dm, ch]],
@@ -42,6 +41,7 @@ class UpdaterTick:
             )
         else:
             self.dict_df[ticker].at[d + t] = c, h, per, hlmp, sm, dm, ch
+            self.dict_last_dm[ticker] = dm
 
         if now() > self.time_info:
             gap = (now() - receiv_time).total_seconds()
