@@ -70,20 +70,20 @@ class Strategy:
                 self.UpdateInfo()
                 self.dict_time['부가정보'] = timedelta_sec(2)
 
-    def UpdateList(self, gubun, ticker):
+    def UpdateList(self, gubun, tickers):
         if '관심종목초기화' in gubun:
             self.dict_gsjm = {}
-            for tick in ticker:
+            for ticker in tickers:
                 data = np.zeros((self.dict_intg['평균시간'] + 2, len(columns_gj1))).tolist()
                 df = pd.DataFrame(data, columns=columns_gj1)
                 df['체결시간'] = '20000101090000'
-                self.dict_gsjm[tick] = df.copy()
+                self.dict_gsjm[ticker] = df.copy()
         elif gubun == '매수완료':
-            if ticker in self.list_buy:
-                self.list_buy.remove(ticker)
+            if tickers in self.list_buy:
+                self.list_buy.remove(tickers)
         elif gubun == '매도완료':
-            if ticker in self.list_sell:
-                self.list_sell.remove(ticker)
+            if tickers in self.list_sell:
+                self.list_sell.remove(tickers)
 
     def BuyStrategy(self, ticker, c, h, low, per, dm, bid, ask, d, t, uuidnone, injango, batting):
         if ticker not in self.dict_gsjm.keys():
@@ -96,7 +96,10 @@ class Strategy:
             sm = 0
         else:
             sm = dm - predm
-        ch = round(bid / ask * 100, 2)
+        try:
+            ch = round(bid / ask * 100, 2)
+        except ZeroDivisionError:
+            ch = 500.
 
         if d + t != self.dict_gsjm[ticker]['체결강도'][self.dict_intg['평균시간'] + 1]:
             self.dict_gsjm[ticker] = self.dict_gsjm[ticker].shift(1)
