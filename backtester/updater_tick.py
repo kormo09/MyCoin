@@ -28,7 +28,10 @@ class UpdaterTick:
     def UpdateTickData(self, ticker, c, h, low, per, dm, bid, ask, d, t, receiv_time):
         hlm = round((h + low) / 2)
         hlmp = round((c / hlm - 1) * 100, 2)
-        ch = round(bid / ask * 100, 2)
+        try:
+            ch = round(bid / ask * 100, 2)
+        except ZeroDivisionError:
+            ch = 500
         try:
             sm = dm - self.dict_last_dm[ticker]
         except KeyError:
