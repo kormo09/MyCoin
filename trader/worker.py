@@ -9,7 +9,7 @@ from PyQt5.QtCore import QThread
 from pyupbit import WebSocketManager
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from setting import *
-from static import now, timedelta_sec, strf_time, telegram_msg, timedelta_hour
+from static import now, timedelta_sec, strf_time, telegram_msg, timedelta_hour, strp_time
 
 
 class Worker(QThread):
@@ -229,11 +229,26 @@ class Worker(QThread):
     모의모드 시 실제 매도수 주문을 전송하지 않고 바로 체결목록, 잔고목록 등을 갱신한다.
     실매매 시 매도수 아이디 및 티커명을 매도, 매수 구분하여 변수에 저장하고
     해당 변수값이 None이 아닐 경우 get_order 함수로 체결확인을 1초마다 반복실행한다.
-    체결이 완료되면 관련목록을 갱신하고 DB에 기록되며 변수값이 다시 None으로 변경된다.
-    None으로 변경 진전 전략 연산 프로세스로 체결완료 신호를 보낸다.
+    체결이 완료되면 관련목록을 갱신하고 변수값이 다시 None으로 변경된다.
+    체결확인 후 잔고목록를 갱신 한 이후에 전략 연산 프로세스로 체결완료 신호를 보낸다.
     모든 목록은 갱신될 때마다 쿼리 프로세스로 보내어 DB에 실시간으로 기록된다.
+    매수 주문은 예수금 부족인지 아닌지를 우선 확인하여 예수금 부족일 경우 주문구분을 시드부족으로 체결목록에 기록하고
+    전략 연산 프로세스의 주문 리스트 삭제용 매수완료 신호만 보낸다.
+    예수금 부족 상태이며 잔고목록에 없는 상태일 경우 전략 프로세스에서 지속적으로 매수 신호가 발생할 수 있다.
+    그러므로 재차 시드부족이 발생한 종목은 체결목록에서 마지막 체결시간이 3분이내면 체결목록에 기록하지 않는다.
     """
     def Buy(self, ticker, c, oc):
+        if self.buy_uuid is not None:
+            self.CompleteSignal('매수완료', ticker)
+            return
+
+        if self.dict_intg['예수금'] < c * oc:
+            df = self.df_cj[(self.df_cj['주문구분'] == '시드부족') & (self.df_cj.index == ticker)]
+            if len(df) == 0 or now() > timedelta_sec(180, strp_time('%Y%m%d%H%M%S%f', df['체결시간'][0])):
+                self.UpdateBuy(ticker, c, oc, strf_time('%Y%m%d%H%M%S'), cancle=True)
+            self.CompleteSignal('매수완료', ticker)
+            return
+
         dt = strf_time('%Y%m%d%H%M%S')
         if self.dict_bool['모의모드']:
             self.UpdateBuy(ticker, c, oc, dt)
@@ -243,6 +258,10 @@ class Worker(QThread):
             self.dict_time['체결확인'] = timedelta_sec(1)
 
     def Sell(self, ticker, c, oc):
+        if self.sell_uuid is not None:
+            self.CompleteSignal('매도완료', ticker)
+            return
+
         dt = strf_time('%Y%m%d%H%M%S')
         if self.dict_bool['모의모드']:
             self.UpdateSell(ticker, c, oc, dt)
@@ -251,24 +270,70 @@ class Worker(QThread):
             self.sell_uuid = [ticker, ret[0]['uuid']]
             self.dict_time['체결확인'] = timedelta_sec(1)
 
-    def UpdateBuy(self, ticker, cp, cc, dt):
-        bg = cp * cc
-        pg, sg, sp = self.GetPgSgSp(bg, bg)
-        self.dict_intg['예수금'] -= bg
-        self.df_jg.at[ticker] = ticker, cp, cp, sp, sg, bg, pg, cc
-        self.df_cj.at[dt] = ticker, '매수', cc, 0, cp, cp, dt
+    def CompleteSignal(self, gubun, ticker):
+        if ticker in self.tickers1:
+            self.stg1Q.put([gubun, ticker])
+        elif ticker in self.tickers2:
+            self.stg2Q.put([gubun, ticker])
+        elif ticker in self.tickers3:
+            self.stg3Q.put([gubun, ticker])
+        elif ticker in self.tickers4:
+            self.stg4Q.put([gubun, ticker])
 
-        self.data0.emit([ui_num['체결목록'], self.df_cj])
-        text = f'매매 시스템 체결 알림 - {ticker} {cc}코인 매수'
-        self.log.info(f'[{now()}] {text}')
-        self.data2.emit([0, text])
-        self.soundQ.put(f'{ticker} {cc}코인을 매수하였습니다.')
-        telegram_msg(f'매수 알림 - {ticker} {cp} {cc}')
+    def UpdateJango(self, ticker, c, ch):
+        prec = self.df_jg['현재가'][ticker]
+        if prec != c:
+            bg = self.df_jg['매입금액'][ticker]
+            jc = int(self.df_jg['보유수량'][ticker])
+            pg, sg, sp = self.GetPgSgSp(bg, jc * c)
+            columns = ['현재가', '수익률', '평가손익', '평가금액']
+            self.df_jg.at[ticker, columns] = c, sp, sg, pg
+            data = [ticker, sp, jc, ch, c]
+            if ticker in self.tickers1:
+                self.stg1Q.put(data)
+            elif ticker in self.tickers2:
+                self.stg2Q.put(data)
+            elif ticker in self.tickers3:
+                self.stg3Q.put(data)
+            elif ticker in self.tickers4:
+                self.stg4Q.put(data)
 
+    def CheckChegeol(self, ticker, dt):
+        if self.buy_uuid is not None and ticker == self.buy_uuid[0]:
+            ret = self.upbit.get_order(self.buy_uuid[1])
+            if ret is not None and ret['state'] == 'done':
+                cp = ret['price']
+                cc = ret['executed_volume']
+                self.UpdateBuy(ticker, cp, cc, dt)
+                self.CompleteSignal('매수완료', ticker)
+                self.buy_uuid = None
+        if self.sell_uuid is not None and ticker == self.sell_uuid[0]:
+            ret = self.upbit.get_order(self.sell_uuid[1])
+            if ret is not None and ret['state'] == 'done':
+                cp = ret['price']
+                cc = ret['executed_volume']
+                self.UpdateSell(ticker, cp, cc, dt)
+                self.CompleteSignal('매도완료', ticker)
+                self.sell_uuid = None
+
+    def UpdateBuy(self, ticker, cp, cc, dt, cancle=False):
         idt = strf_time('%Y%m%d%H%M%S%f')
-        df = pd.DataFrame([[ticker, '매수', cc, 0, cp, cp, dt]], columns=columns_cj, index=[idt])
+        order_gubun = '매수' if not cancle else '시드부족'
+        self.df_cj.at[dt] = ticker, order_gubun, cc, 0, cp, cp, dt
+        if not cancle:
+            bg = cp * cc
+            pg, sg, sp = self.GetPgSgSp(bg, bg)
+            self.dict_intg['예수금'] -= bg
+            self.df_jg.at[ticker] = ticker, cp, cp, sp, sg, bg, pg, cc
+            self.data0.emit([ui_num['체결목록'], self.df_cj])
+            self.queryQ.put([self.df_jg, 'jangolist', 'replace'])
+            text = f'매매 시스템 체결 알림 - {ticker} {cc}코인 매수'
+            self.log.info(f'[{now()}] {text}')
+            self.data2.emit([0, text])
+            self.soundQ.put(f'{ticker} {cc}코인을 매수하였습니다.')
+            telegram_msg(f'매수 알림 - {ticker} {cp} {cc}')
+        df = pd.DataFrame([[ticker, order_gubun, cc, 0, cp, cp, dt]], columns=columns_cj, index=[idt])
         self.queryQ.put([df, 'chegeollist', 'append'])
-        self.queryQ.put([self.df_jg, 'jangolist', 'replace'])
 
     def UpdateSell(self, ticker, cp, cc, dt):
         bp = self.df_jg['매입가'][ticker]
@@ -313,56 +378,6 @@ class Worker(QThread):
         sg = pg - bg
         sp = round(sg / bg * 100, 2)
         return pg, sg, sp
-
-    def UpdateJango(self, ticker, c, ch):
-        prec = self.df_jg['현재가'][ticker]
-        if prec != c:
-            bg = self.df_jg['매입금액'][ticker]
-            jc = int(self.df_jg['보유수량'][ticker])
-            pg, sg, sp = self.GetPgSgSp(bg, jc * c)
-            columns = ['현재가', '수익률', '평가손익', '평가금액']
-            self.df_jg.at[ticker, columns] = c, sp, sg, pg
-            data = [ticker, sp, jc, ch, c]
-            if ticker in self.tickers1:
-                self.stg1Q.put(data)
-            elif ticker in self.tickers2:
-                self.stg2Q.put(data)
-            elif ticker in self.tickers3:
-                self.stg3Q.put(data)
-            elif ticker in self.tickers4:
-                self.stg4Q.put(data)
-
-    def CheckChegeol(self, ticker, dt):
-        if self.buy_uuid is not None and ticker == self.buy_uuid[0]:
-            ret = self.upbit.get_order(self.buy_uuid[1])
-            if ret is not None and ret['state'] == 'done':
-                cp = ret['price']
-                cc = ret['executed_volume']
-                self.UpdateBuy(ticker, cp, cc, dt)
-                if ticker in self.tickers1:
-                    self.stg1Q.put(['매수완료', ticker])
-                elif ticker in self.tickers2:
-                    self.stg2Q.put(['매수완료', ticker])
-                elif ticker in self.tickers3:
-                    self.stg3Q.put(['매수완료', ticker])
-                elif ticker in self.tickers4:
-                    self.stg4Q.put(['매수완료', ticker])
-                self.buy_uuid = None
-        if self.sell_uuid is not None and ticker == self.sell_uuid[0]:
-            ret = self.upbit.get_order(self.sell_uuid[1])
-            if ret is not None and ret['state'] == 'done':
-                cp = ret['price']
-                cc = ret['executed_volume']
-                self.UpdateSell(ticker, cp, cc, dt)
-                if ticker in self.tickers1:
-                    self.stg1Q.put(['매도완료', ticker])
-                elif ticker in self.tickers2:
-                    self.stg2Q.put(['매도완료', ticker])
-                elif ticker in self.tickers3:
-                    self.stg3Q.put(['매도완료', ticker])
-                elif ticker in self.tickers4:
-                    self.stg4Q.put(['매도완료', ticker])
-                self.sell_uuid = None
 
     def UpdateTotaljango(self):
         if len(self.df_jg) > 0:
