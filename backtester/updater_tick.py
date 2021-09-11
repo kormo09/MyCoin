@@ -21,30 +21,24 @@ class UpdaterTick:
 
     def Start(self):
         while True:
-            tick = self.tickQ.get()
-            self.UpdateTickData(tick[0], tick[1], tick[2], tick[3], tick[4], tick[5],
-                                tick[6], tick[7], tick[8], tick[9], tick[10])
+            data = self.tickQ.get()
+            self.UpdateTickData(data[0], data[1])
 
-    def UpdateTickData(self, ticker, c, h, low, per, dm, bid, ask, d, t, receiv_time):
-        hlm = round((h + low) / 2)
-        hlmp = round((c / hlm - 1) * 100, 2)
+    def UpdateTickData(self, data, receiv_time):
+        ticker = data['code']
+        hlm = round((data['high_price'] + data['low_price']) / 2)
+        data['avg_highlow_per'] = round((data['trade_price'] / hlm - 1) * 100, 2)
+        dm = data['acc_trade_price']
+        dt = data['trade_date'] + data['trade_time']
         try:
-            ch = round(bid / ask * 100, 2)
-        except ZeroDivisionError:
-            ch = 500
-        try:
-            sm = dm - self.dict_last_dm[ticker]
+            data['second_money'] = dm - self.dict_last_dm[ticker]
         except KeyError:
-            sm = 0
+            data['second_money'] = 0
         self.dict_last_dm[ticker] = dm
         if ticker not in self.dict_df.keys():
-            self.dict_df[ticker] = pd.DataFrame(
-                [[c, h, per, hlmp, sm, dm, ch]],
-                columns=['현재가', '고가', '등락율', '고저평균대비등락율', '거래대금', '누적거래대금', '체결강도'],
-                index=[d + t]
-            )
+            self.dict_df[ticker] = pd.DataFrame(data, index=[dt])
         else:
-            self.dict_df[ticker].at[d + t] = c, h, per, hlmp, sm, dm, ch
+            self.dict_df[ticker].at[dt] = data
 
         if now() > self.time_info:
             gap = (now() - receiv_time).total_seconds()

@@ -64,20 +64,18 @@ class Query:
     def __init__(self, windowQQ, queryQQ):
         self.windowQ = windowQQ
         self.queryQ = queryQQ
+        self.con = sqlite3.connect(db_tick)
         self.Start()
+
+    def __del__(self):
+        self.con.close()
 
     def Start(self):
         while True:
             dict_df = self.queryQ.get()
-            con = sqlite3.connect(db_tick)
             for i, ticker in enumerate(list(dict_df.keys())):
-                columns = ['현재가', '고가', '거래대금', '누적거래대금']
-                dict_df[ticker][columns] = dict_df[ticker][columns].astype(int)
-                columns = ['등락율', '고저평균대비등락율', '체결강도']
-                dict_df[ticker][columns] = dict_df[ticker][columns].astype(float)
-                dict_df[ticker].to_sql(ticker, con, if_exists='append', chunksize=1000)
+                dict_df[ticker].to_sql(ticker, self.con, if_exists='append', chunksize=1000)
                 self.windowQ.put(f'시스템 명령 실행 알림 - 틱데이터 저장 중...[{i + 1}/{len(dict_df)}]')
-            con.close()
 
 
 if __name__ == '__main__':

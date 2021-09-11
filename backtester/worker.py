@@ -48,22 +48,13 @@ class Worker(QThread):
             data = self.websocketQ.get()
             self.int_tick += 1
             ticker = data['code']
-            c = data['trade_price']
-            h = data['high_price']
-            low = data['low_price']
-            per = round(data['change_rate'] * 100, 2)
-            dm = int(data['acc_trade_price'] / 1000)
-            bid = data['acc_bid_volume']
-            ask = data['acc_ask_volume']
-            d = data['trade_date']
             t = data['trade_time']
             if ticker not in self.dict_time.keys() or t != self.dict_time[ticker]:
                 self.dict_time[ticker] = t
-                data = [ticker, c, h, low, per, dm, bid, ask, d, t, now()]
                 if ticker in self.tickers1:
-                    self.tick1Q.put(data)
+                    self.tick1Q.put([data, now()])
                 elif ticker in self.tickers2:
-                    self.tick2Q.put(data)
+                    self.tick2Q.put([data, now()])
 
             if now() > self.time_info:
                 self.data.emit(f'부가정보업데이트 {self.int_tick}')
