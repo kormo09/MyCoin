@@ -12,7 +12,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette
 from multiprocessing import Queue, Process
 from sound import Sound
-from trader_uupbit import TraderUpbit
+from trader_upbit import TraderUpbit
 from strategy_coin import StrategyCoin
 
 
