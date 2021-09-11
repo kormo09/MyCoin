@@ -9,7 +9,7 @@ from trader.setting import db_backtest, db_tick, db_stg, system_path
 from trader.static import now, strf_time, telegram_msg, timedelta_day
 
 
-class BackTesterTick:
+class BackTesterCoin:
     def __init__(self, q_, code_list_, num_, high):
         self.q = q_
         self.code_list = code_list_
@@ -57,10 +57,10 @@ class BackTesterTick:
             self.df = pd.read_sql(f"SELECT * FROM '{ticker}'", conn)
             self.df = self.df.set_index('index')
             self.df['등락율'] = self.df['signed_change_rate'] * 100
-            self.df[['등락율']] = self.df[['등락율']].round(2)
+            self.df['등락율'] = self.df['등락율'].round(2)
             self.df['직전거래대금'] = self.df['second_money'].shift(1)
             self.df['체결강도'] = self.df['acc_bid_volume'] / self.df['acc_ask_volume'] * 100
-            self.df[['체결강도']] = self.df[['체결강도']].round(2)
+            self.df['체결강도'] = self.df['체결강도'].round(2)
             self.df['직전체결강도'] = self.df['체결강도'].shift(1)
             self.df['거래대금평균'] = self.df['직전거래대금'].rolling(window=self.avgtime).mean()
             self.df['체결강도평균'] = self.df['직전체결강도'].rolling(window=self.avgtime).mean()
@@ -101,11 +101,6 @@ class BackTesterTick:
         self.csell = 0
 
     def SellTerm(self):
-        if self.index == self.df.index[self.indexn - 1] or self.index == self.df.index[self.indexn + 1]:
-            return False
-        bg = self.buycount * self.buyprice
-        cg = self.buycount * self.df['trade_price'][self.index]
-        eyun, per = self.GetEyunPer(bg, cg)
 
         # 전략 비공개
 
@@ -307,7 +302,7 @@ if __name__ == "__main__":
         workcount = int(last / 6) + 1
         for j in range(0, last, workcount):
             code_list = table_list[j:j + workcount]
-            p = Process(target=BackTesterTick, args=(q, code_list, num, False))
+            p = Process(target=BackTesterCoin, args=(q, code_list, num, False))
             procs.append(p)
             p.start()
         for p in procs:
@@ -342,7 +337,7 @@ if __name__ == "__main__":
     workcount = int(last / 6) + 1
     for j in range(0, last, workcount):
         db_list = table_list[j:j + workcount]
-        p = Process(target=BackTesterTick, args=(q, db_list, num, True))
+        p = Process(target=BackTesterCoin, args=(q, db_list, num, True))
         procs.append(p)
         p.start()
     for p in procs:

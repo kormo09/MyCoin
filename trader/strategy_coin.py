@@ -7,7 +7,7 @@ from setting import columns_gj1, db_stg, ui_num
 from static import now, timedelta_sec, thread_decorator
 
 
-class Strategy:
+class StrategyCoin:
     def __init__(self, gubun, windowQ, workerQ, queryQ, stgQ):
         self.gubun = gubun
         self.windowQ = windowQ

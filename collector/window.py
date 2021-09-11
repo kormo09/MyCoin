@@ -2,12 +2,13 @@ import os
 import sys
 import sqlite3
 import logging
-from worker import Worker
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette
 from updater_tick import UpdaterTick
 from multiprocessing import Process, Queue
+from webs_ticker import WebsTicker
+from webs_orderbook import WebsOrderbook
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from trader.setting import *
 from trader.static import now, strf_time
@@ -43,20 +44,29 @@ class Window(QtWidgets.QMainWindow):
         self.info_label = QtWidgets.QLabel(self)
         self.info_label.setGeometry(105, 1, 500, 30)
 
-        self.worker = Worker(windowQ, tick1Q, tick2Q)
-        self.worker.data.connect(self.UpdateTexedit)
-        self.worker.start()
+        self.int_orderbook = 0
+
+        self.websticker = WebsTicker(windowQ, orderQ, tick1Q, tick2Q)
+        self.websticker.data.connect(self.UpdateTexedit)
+        self.websticker.start()
+
+        self.websorderbook = WebsOrderbook(orderQ, tick1Q, tick2Q)
+        self.websorderbook.data.connect(self.UpdateTexedit)
+        self.websorderbook.start()
 
     def UpdateTexedit(self, msg):
         if '부가정보업데이트' in msg:
             self.UpdateInfo(msg.split(' ')[1])
+        elif '오더북부가정보' in msg:
+            self.int_orderbook = int(msg.split(' ')[1])
         else:
             self.lg_textEdit.setTextColor(color_fg_dk)
             self.lg_textEdit.append(f'[{now()}] {msg}')
             self.log.info(f'[{now()}] {msg}')
 
     def UpdateInfo(self, jcps):
-        label01text = f'Data Received - RTJC {jcps}TICKps, Queue size - tickQ {tick1Q.qsize() + tick2Q.qsize()}'
+        label01text = f'Data Received - RTJC {jcps}TICKps | RTOB {self.int_orderbook}TICKps | ' \
+                      f'Queue size - tickQ {tick1Q.qsize() + tick2Q.qsize()}'
         self.info_label.setText(label01text)
 
 
@@ -79,7 +89,7 @@ class Query:
 
 
 if __name__ == '__main__':
-    windowQ, queryQ, tick1Q, tick2Q = Queue(), Queue(), Queue(), Queue()
+    windowQ, orderQ, queryQ, tick1Q, tick2Q = Queue(), Queue(), Queue(), Queue(), Queue()
 
     Process(target=Query, args=(windowQ, queryQ), daemon=True).start()
     Process(target=UpdaterTick, args=(tick1Q, queryQ, windowQ), daemon=True).start()

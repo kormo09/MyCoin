@@ -1,9 +1,9 @@
 from PyQt5.QtGui import QFont, QColor
 
 system_path = 'D:/PythonProjects/MyCoin/'
-db_path = f'{system_path}/db'
+db_path = f'{system_path}/database'
 db_stg = f'{db_path}/stg.db'
-db_tick = f'{db_path}/tick.db'
+db_tick = f'{db_path}/tick1.db'
 db_backtest = f'{db_path}/backtest.db'
 
 qfont12 = QFont()

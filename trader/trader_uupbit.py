@@ -12,7 +12,7 @@ from setting import *
 from static import now, timedelta_sec, strf_time, telegram_msg, timedelta_hour, strp_time
 
 
-class Worker(QThread):
+class TraderUpbit(QThread):
     data0 = QtCore.pyqtSignal(list)
     data1 = QtCore.pyqtSignal(list)
     data2 = QtCore.pyqtSignal(list)

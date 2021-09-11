@@ -2,7 +2,7 @@ import sqlite3
 from setting import db_stg
 
 
-class Query:
+class QueryCoin:
     def __init__(self, queryQ):
         self.queryQ = queryQ
         self.con = sqlite3.connect(db_stg)
