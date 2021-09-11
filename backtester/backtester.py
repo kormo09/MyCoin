@@ -56,7 +56,11 @@ class BackTesterTick:
             self.ticker = ticker
             self.df = pd.read_sql(f"SELECT * FROM '{ticker}'", conn)
             self.df = self.df.set_index('index')
-            self.df['직전거래대금'] = self.df['거래대금'].shift(1)
+            self.df['등락율'] = self.df['signed_change_rate'] * 100
+            self.df[['등락율']] = self.df[['등락율']].round(2)
+            self.df['직전거래대금'] = self.df['second_money'].shift(1)
+            self.df['체결강도'] = self.df['acc_bid_volume'] / self.df['acc_ask_volume'] * 100
+            self.df[['체결강도']] = self.df[['체결강도']].round(2)
             self.df['직전체결강도'] = self.df['체결강도'].shift(1)
             self.df['거래대금평균'] = self.df['직전거래대금'].rolling(window=self.avgtime).mean()
             self.df['체결강도평균'] = self.df['직전체결강도'].rolling(window=self.avgtime).mean()
@@ -89,10 +93,10 @@ class BackTesterTick:
         return True
 
     def Buy(self):
-        self.buycount = int(self.batting / self.df['현재가'][self.index])
+        self.buycount = int(self.batting / self.df['trade_price'][self.index])
         if self.buycount == 0:
             return
-        self.buyprice = self.df['현재가'][self.index]
+        self.buyprice = self.df['trade_price'][self.index]
         self.hold = True
         self.csell = 0
 
@@ -100,7 +104,7 @@ class BackTesterTick:
         if self.index == self.df.index[self.indexn - 1] or self.index == self.df.index[self.indexn + 1]:
             return False
         bg = self.buycount * self.buyprice
-        cg = self.buycount * self.df['현재가'][self.index]
+        cg = self.buycount * self.df['trade_price'][self.index]
         eyun, per = self.GetEyunPer(bg, cg)
 
         # 전략 비공개
@@ -108,7 +112,7 @@ class BackTesterTick:
         return False
 
     def Sell(self):
-        self.sellprice = self.df['현재가'][self.index]
+        self.sellprice = self.df['trade_price'][self.index]
         self.hold = False
         self.CalculationEyun()
 
