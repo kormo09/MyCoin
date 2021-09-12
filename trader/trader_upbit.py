@@ -320,11 +320,13 @@ class TraderUpbit(QThread):
         idt = strf_time('%Y%m%d%H%M%S%f')
         order_gubun = '매수' if not cancle else '시드부족'
         self.df_cj.at[dt] = ticker, order_gubun, cc, 0, cp, cp, dt
+        self.df_cj.sort_values(by='체결시간', ascending=False, inplace=True)
         if not cancle:
             bg = cp * cc
             pg, sg, sp = self.GetPgSgSp(bg, bg)
             self.dict_intg['예수금'] -= bg
             self.df_jg.at[ticker] = ticker, cp, cp, sp, sg, bg, pg, cc
+            self.df_jg.sort_values(by=['매입금액'], ascending=False, inplace=True)
             self.data0.emit([ui_num['체결목록'], self.df_cj])
             self.queryQ.put([self.df_jg, 'jangolist', 'replace'])
             text = f'매매 시스템 체결 알림 - {ticker} {cc}코인 매수'
@@ -338,11 +340,12 @@ class TraderUpbit(QThread):
     def UpdateSell(self, ticker, cp, cc, dt):
         bp = self.df_jg['매입가'][ticker]
         bg = bp * cc
-        pg, sg, sp = self.GetPgSgSp(bg, cc * cp)
+        pg, sg, sp = self.GetPgSgSp(bg, cp * cc)
         self.dict_intg['예수금'] += bg + sg
         self.df_jg.drop(index=ticker, inplace=True)
         self.df_cj.at[dt] = ticker, '매도', cc, 0, cp, cp, dt
         self.df_td.at[dt] = ticker, bg, pg, cc, sp, sg, dt
+        self.df_td.sort_values(by=['체결시간'], ascending=False, inplace=True)
         tsg = self.df_td['매도금액'].sum()
         tbg = self.df_td['매수금액'].sum()
         tsig = self.df_td[self.df_td['수익금'] > 0]['수익금'].sum()
@@ -366,7 +369,7 @@ class TraderUpbit(QThread):
         idt = strf_time('%Y%m%d%H%M%S%f')
         df = pd.DataFrame([[ticker, '매도', cc, 0, cp, cp, dt]], columns=columns_cj, index=[idt])
         self.queryQ.put([df, 'chegeollist', 'append'])
-        df = pd.DataFrame([[ticker, bp, cp, cc, sp, sg, dt]], columns=columns_td, index=[idt])
+        df = pd.DataFrame([[ticker, bg, pg, cc, sp, sg, dt]], columns=columns_td, index=[idt])
         self.queryQ.put([df, 'tradelist', 'append'])
         self.queryQ.put([self.df_jg, 'jangolist', 'replace'])
 
