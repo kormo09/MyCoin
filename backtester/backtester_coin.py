@@ -73,7 +73,7 @@ class BackTesterCoin:
             self.totalper = 0.
             lasth = len(self.df) - 1
             for h, index in enumerate(self.df.index):
-                if int(index[:8]) < int_daylimit or h < self.avgtime:
+                if int(index[:8]) < int_daylimit or h < self.avgtime or h >= lasth - 2:
                     continue
                 self.index = index
                 self.indexn = h
@@ -87,10 +87,9 @@ class BackTesterCoin:
         conn.close()
 
     def BuyTerm(self):
-        try:
-            if self.df['등락율'][self.index] < 0 or self.df['등락율'][self.index] > self.phigh:
-                return False
-        except ValueError:
+        if int(self.index) <= int(self.df.index[self.indexn - 1]) or \
+                self.index == self.df.index[self.indexn + 1] or \
+                self.index == self.df.index[self.indexn + 2]:
             return False
 
         # 전략 비공개
@@ -98,22 +97,25 @@ class BackTesterCoin:
         return True
 
     def Buy(self):
-        if self.df['ask_price_1'][self.index] * self.df['ask_size_1'][self.index] >= self.batting:
-            s1hg = self.df['ask_price_1'][self.index]
-            self.buycount = int(self.batting / s1hg)
-            self.buyprice = s1hg
+        ask_size_1 = self.df['ask_size_1'][self.index]
+        ask_money_1 = self.df['ask_price_1'][self.index] * ask_size_1
+        if ask_money_1 >= self.batting:
+            self.buyprice = self.df['ask_price_1'][self.index]
+            self.buycount = int(self.batting / self.buyprice)
         else:
-            s1hg = self.df['ask_price_1'][self.index]
-            s1jr = self.df['ask_size_1'][self.index]
-            s2hg = self.df['ask_price_2'][self.index]
-            ng = self.batting - s1hg * s1jr
-            s2jc = int(ng / s2hg)
-            self.buycount = s1jr + s2jc
-            self.buyprice = round((s1hg * s1jr + s2hg * s2jc) / self.buycount, 2)
+            ng = self.batting - ask_money_1
+            ask_size_2 = int(ng / self.df['ask_price_2'][self.index])
+            self.buycount = ask_size_1 + ask_size_2
+            self.buyprice = round((ask_money_1 + ask_size_2 * self.buycount) / self.buycount, 2)
         self.hold = True
         self.csell = 0
 
     def SellTerm(self):
+        if int(self.index) <= int(self.df.index[self.indexn - 1]) or \
+                self.index == self.df.index[self.indexn + 1] or \
+                self.index == self.df.index[self.indexn + 2]:
+            return False
+
         bg = self.buycount * self.buyprice
         cg = self.buycount * self.df['trade_price'][self.index]
         eyun, per = self.GetEyunPer(bg, cg)
@@ -123,7 +125,7 @@ class BackTesterCoin:
         return False
 
     def Sell(self):
-        if self.df['bid_price_1'][self.index] >= self.buycount:
+        if self.df['bid_size_1'][self.index] >= self.buycount:
             self.sellprice = self.df['bid_price_1'][self.index]
         else:
             b1hg = self.df['bid_price_1'][self.index]
