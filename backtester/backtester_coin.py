@@ -98,10 +98,18 @@ class BackTesterCoin:
         return True
 
     def Buy(self):
-        self.buycount = int(self.batting / self.df['trade_price'][self.index])
-        if self.buycount == 0:
-            return
-        self.buyprice = self.df['trade_price'][self.index]
+        if self.df['ask_price_1'][self.index] * self.df['ask_size_1'][self.index] >= self.batting:
+            s1hg = self.df['ask_price_1'][self.index]
+            self.buycount = int(self.batting / s1hg)
+            self.buyprice = s1hg
+        else:
+            s1hg = self.df['ask_price_1'][self.index]
+            s1jr = self.df['ask_size_1'][self.index]
+            s2hg = self.df['ask_price_2'][self.index]
+            ng = self.batting - s1hg * s1jr
+            s2jc = int(ng / s2hg)
+            self.buycount = s1jr + s2jc
+            self.buyprice = round((s1hg * s1jr + s2hg * s2jc) / self.buycount, 2)
         self.hold = True
         self.csell = 0
 
@@ -115,7 +123,14 @@ class BackTesterCoin:
         return False
 
     def Sell(self):
-        self.sellprice = self.df['trade_price'][self.index]
+        if self.df['bid_price_1'][self.index] >= self.buycount:
+            self.sellprice = self.df['bid_price_1'][self.index]
+        else:
+            b1hg = self.df['bid_price_1'][self.index]
+            b1jr = self.df['bid_size_1'][self.index]
+            b2hg = self.df['bid_price_2'][self.index]
+            nc = self.buycount - b1jr
+            self.sellprice = round((b1hg * b1jr + b2hg * nc) / self.buycount, 2)
         self.hold = False
         self.CalculationEyun()
 
@@ -281,12 +296,12 @@ if __name__ == "__main__":
     start = now()
 
     gap_ch = [1, 10, 1, 0.1]
-    gap_sm = [0, 1000000, 100000, 10000]
+    gap_sm = [0, 100000000, 10000000, 1000000]
     avgtime = [30, 600, 30, 30]
     selltime = [1, 5, 1, 1]
     chlow = [0, 150, 10, 1]
-    dmlow = [0, 10000000, 1000000, 100000]
-    phigh = [25., 15., -1, -1]
+    dmlow = [0, 10000000000, 1000000000, 100000000]
+    phigh = [100., 10., -10, -1]
     hlmplow = [0., 5., 1, 0.1]
     num = [gap_ch, gap_sm, avgtime, selltime, chlow, dmlow, phigh, hlmplow]
 
