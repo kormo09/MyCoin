@@ -87,6 +87,11 @@ class BackTesterCoin:
         conn.close()
 
     def BuyTerm(self):
+        try:
+            if self.df['등락율'][self.index] < 0 or self.df['등락율'][self.index] > self.phigh:
+                return False
+        except ValueError:
+            return False
 
         # 전략 비공개
 
@@ -101,6 +106,9 @@ class BackTesterCoin:
         self.csell = 0
 
     def SellTerm(self):
+        bg = self.buycount * self.buyprice
+        cg = self.buycount * self.df['trade_price'][self.index]
+        eyun, per = self.GetEyunPer(bg, cg)
 
         # 전략 비공개
 
