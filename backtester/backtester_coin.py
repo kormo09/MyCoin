@@ -194,6 +194,7 @@ class BackTesterCoin:
         totalper = '   ' + totalper if len(totalper.split('.')[0]) == 1 else totalper
         totalper = '  ' + totalper if len(totalper.split('.')[0]) == 2 else totalper
         totalper = ' ' + totalper if len(totalper.split('.')[0]) == 3 else totalper
+        totalper = totalper + '0' if len(totalper.split('.')[1]) == 1 else totalper
         totaleyun = format(self.totaleyun, ',')
         if len(totaleyun.split(',')) == 1:
             totaleyun = '         ' + totaleyun if len(totaleyun.split(',')[0]) == 1 else totaleyun
