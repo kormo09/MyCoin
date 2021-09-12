@@ -40,11 +40,10 @@ class BackTesterCoin:
         self.buycount = 0
         self.buyprice = 0
         self.sellprice = 0
-        self.index = 0
 
+        self.index = 0
         self.indexn = 0
-        self.ccond = 0
-        self.csell = 0
+        self.sell_time = 0
 
         self.Start()
 
@@ -73,13 +72,13 @@ class BackTesterCoin:
             self.totalper = 0.
             lasth = len(self.df) - 1
             for h, index in enumerate(self.df.index):
-                if int(index[:8]) < int_daylimit or h < self.avgtime or h >= lasth - 2:
+                if int(index[:8]) < int_daylimit or h < self.avgtime:
                     continue
                 self.index = index
                 self.indexn = h
-                if not self.hold and h != lasth and self.BuyTerm():
+                if not self.hold and h < lasth - 2 and self.BuyTerm():
                     self.Buy()
-                elif self.hold and h != lasth and self.SellTerm():
+                elif self.hold and h < lasth - 2 and self.SellTerm():
                     self.Sell()
                 if self.hold and h == lasth:
                     self.Sell()
@@ -97,18 +96,22 @@ class BackTesterCoin:
         return True
 
     def Buy(self):
+        ask_price_1 = self.df['ask_price_1'][self.index]
+        ask_price_2 = self.df['ask_price_2'][self.index]
         ask_size_1 = self.df['ask_size_1'][self.index]
-        ask_money_1 = self.df['ask_price_1'][self.index] * ask_size_1
+        ask_money_1 = ask_price_1 * ask_size_1
         if ask_money_1 >= self.batting:
-            self.buyprice = self.df['ask_price_1'][self.index]
-            self.buycount = int(self.batting / self.buyprice)
+            self.buycount = int(self.batting / ask_price_1)
+            self.buyprice = ask_price_1
+            if self.buycount == 0:
+                return
         else:
-            ng = self.batting - ask_money_1
-            ask_size_2 = int(ng / self.df['ask_price_2'][self.index])
+            reamin_money = self.batting - ask_money_1
+            ask_size_2 = int(reamin_money / ask_price_2)
             self.buycount = ask_size_1 + ask_size_2
-            self.buyprice = round((ask_money_1 + ask_size_2 * self.buycount) / self.buycount, 2)
+            self.buyprice = round((ask_money_1 + ask_size_2 * ask_price_2) / self.buycount, 2)
         self.hold = True
-        self.csell = 0
+        self.sell_time = 0
 
     def SellTerm(self):
         if int(self.index) <= int(self.df.index[self.indexn - 1]) or \
@@ -116,23 +119,19 @@ class BackTesterCoin:
                 self.index == self.df.index[self.indexn + 2]:
             return False
 
-        bg = self.buycount * self.buyprice
-        cg = self.buycount * self.df['trade_price'][self.index]
-        eyun, per = self.GetEyunPer(bg, cg)
-
         # 전략 비공개
 
         return False
 
     def Sell(self):
-        if self.df['bid_size_1'][self.index] >= self.buycount:
-            self.sellprice = self.df['bid_price_1'][self.index]
+        bid_price_1 = self.df['bid_price_1'][self.index]
+        bid_price_2 = self.df['bid_price_2'][self.index]
+        bid_size_1 = self.df['bid_size_1'][self.index]
+        if bid_size_1 >= self.buycount:
+            self.sellprice = bid_price_1
         else:
-            b1hg = self.df['bid_price_1'][self.index]
-            b1jr = self.df['bid_size_1'][self.index]
-            b2hg = self.df['bid_price_2'][self.index]
-            nc = self.buycount - b1jr
-            self.sellprice = round((b1hg * b1jr + b2hg * nc) / self.buycount, 2)
+            remain_size = self.buycount - bid_size_1
+            self.sellprice = round((bid_price_1 * bid_size_1 + bid_price_2 * remain_size) / self.buycount, 2)
         self.hold = False
         self.CalculationEyun()
 
@@ -195,7 +194,6 @@ class BackTesterCoin:
         totalper = '   ' + totalper if len(totalper.split('.')[0]) == 1 else totalper
         totalper = '  ' + totalper if len(totalper.split('.')[0]) == 2 else totalper
         totalper = ' ' + totalper if len(totalper.split('.')[0]) == 3 else totalper
-        totalper = totalper + '0' if len(totalper.split('.')[1]) == 1 else totalper
         totaleyun = format(self.totaleyun, ',')
         if len(totaleyun.split(',')) == 1:
             totaleyun = '         ' + totaleyun if len(totaleyun.split(',')[0]) == 1 else totaleyun
