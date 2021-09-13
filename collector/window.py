@@ -33,7 +33,7 @@ class Window(QtWidgets.QMainWindow):
 
         self.setFont(qfont12)
         self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setGeometry(0, 0, 692, 292)
+        self.setGeometry(0, 293, 692, 292)
 
         self.lg_tabWidget = QtWidgets.QTabWidget(self)
         self.lg_tabWidget.setGeometry(5, 5, 682, 282)
