@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from multiprocessing import Process, Queue
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from trader.setting import db_backtest, db_tick, db_stg, system_path
-from trader.static import now, strf_time, telegram_msg, timedelta_day
+from trader.static import now, strf_time, telegram_msg
 
 
 class BackTesterCoin:
@@ -50,7 +50,6 @@ class BackTesterCoin:
     def Start(self):
         conn = sqlite3.connect(db_tick)
         tcount = len(self.code_list)
-        int_daylimit = int(strf_time('%Y%m%d', timedelta_day(-14)))
         for k, ticker in enumerate(self.code_list):
             self.ticker = ticker
             self.df = pd.read_sql(f"SELECT * FROM '{ticker}'", conn)
@@ -72,15 +71,15 @@ class BackTesterCoin:
             self.totalper = 0.
             lasth = len(self.df) - 1
             for h, index in enumerate(self.df.index):
-                if int(index[:8]) < int_daylimit or h < self.avgtime:
+                if h < self.avgtime or (not self.hold and h > lasth - 2):
                     continue
                 self.index = index
                 self.indexn = h
-                if not self.hold and h < lasth - 2 and self.BuyTerm():
+                if not self.hold and self.BuyTerm():
                     self.Buy()
-                elif self.hold and h < lasth - 2 and self.SellTerm():
+                elif self.hold and self.SellTerm():
                     self.Sell()
-                if self.hold and h == lasth:
+                if h == lasth - 2 and self.hold:
                     self.Sell()
             self.Report(k + 1, tcount)
         conn.close()
@@ -118,6 +117,10 @@ class BackTesterCoin:
                 self.index == self.df.index[self.indexn + 1] or \
                 self.index == self.df.index[self.indexn + 2]:
             return False
+
+        bg = self.buycount * self.buyprice
+        cg = self.buycount * self.df['trade_price'][self.index]
+        eyun, per = self.GetEyunPer(bg, cg)
 
         # 전략 비공개
 
