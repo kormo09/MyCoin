@@ -12,8 +12,8 @@ from PyQt5.QtCore import QThread
 from pyupbit import WebSocketManager
 from multiprocessing import Process, Queue
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-from trader.setting import *
-from trader.static import now, strf_time, timedelta_sec
+from utility.setting import *
+from utility.static import now, strf_time, timedelta_sec
 
 
 class Query:

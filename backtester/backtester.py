@@ -5,11 +5,11 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from multiprocessing import Process, Queue
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-from trader.setting import db_backtest, db_tick, db_stg, system_path
-from trader.static import now, strf_time, telegram_msg
+from utility.setting import db_backtest, db_tick, db_stg, system_path
+from utility.static import now, strf_time, telegram_msg
 
 
-class BackTesterCoin:
+class BackTester:
     def __init__(self, q_, code_list_, num_, high):
         self.q = q_
         self.code_list = code_list_
@@ -329,7 +329,7 @@ if __name__ == "__main__":
         workcount = int(last / 6) + 1
         for j in range(0, last, workcount):
             code_list = table_list[j:j + workcount]
-            p = Process(target=BackTesterCoin, args=(q, code_list, num, False))
+            p = Process(target=BackTester, args=(q, code_list, num, False))
             procs.append(p)
             p.start()
         for p in procs:
@@ -364,7 +364,7 @@ if __name__ == "__main__":
     workcount = int(last / 6) + 1
     for j in range(0, last, workcount):
         db_list = table_list[j:j + workcount]
-        p = Process(target=BackTesterCoin, args=(q, db_list, num, True))
+        p = Process(target=BackTester, args=(q, db_list, num, True))
         procs.append(p)
         p.start()
     for p in procs:

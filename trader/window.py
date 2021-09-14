@@ -3,17 +3,18 @@ import sys
 import psutil
 import sqlite3
 import pandas as pd
-from static import *
-from setting import *
-from query_coin import QueryCoin
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette
 from multiprocessing import Queue, Process
-from sound import Sound
-from trader_upbit import TraderUpbit
-from strategy_coin import StrategyCoin
+from trader import Trader
+from strategy import Strategy
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+from utility.query import Query
+from utility.sound import Sound
+from utility.static import *
+from utility.setting import *
 
 
 class Window(QtWidgets.QMainWindow):
@@ -134,7 +135,7 @@ class Window(QtWidgets.QMainWindow):
         self.info4 = [0., 0, 0.]
         self.info5 = [0., 0, 0.]
 
-        self.worker = TraderUpbit(windowQ, workerQ, queryQ, soundQ, stg1Q, stg2Q, stg3Q, stg4Q)
+        self.worker = Trader(windowQ, workerQ, queryQ, soundQ, stg1Q, stg2Q, stg3Q, stg4Q)
         self.worker.data0.connect(self.UpdateTablewidget)
         self.worker.data1.connect(self.UpdateGoansimjongmok)
         self.worker.data2.connect(self.UpdateInfo)
@@ -385,12 +386,12 @@ class Window(QtWidgets.QMainWindow):
 if __name__ == '__main__':
     windowQ, workerQ, queryQ, soundQ, stg1Q, stg2Q, stg3Q, stg4Q = \
         Queue(), Queue(), Queue(), Queue(), Queue(), Queue(), Queue(), Queue()
-    Process(target=QueryCoin, args=(queryQ,)).start()
+    Process(target=Query, args=(queryQ,)).start()
     Process(target=Sound, args=(soundQ,)).start()
-    Process(target=StrategyCoin, args=(2, windowQ, workerQ, queryQ, stg1Q)).start()
-    Process(target=StrategyCoin, args=(3, windowQ, workerQ, queryQ, stg2Q)).start()
-    Process(target=StrategyCoin, args=(4, windowQ, workerQ, queryQ, stg3Q)).start()
-    Process(target=StrategyCoin, args=(5, windowQ, workerQ, queryQ, stg4Q)).start()
+    Process(target=Strategy, args=(2, windowQ, workerQ, queryQ, stg1Q)).start()
+    Process(target=Strategy, args=(3, windowQ, workerQ, queryQ, stg2Q)).start()
+    Process(target=Strategy, args=(4, windowQ, workerQ, queryQ, stg3Q)).start()
+    Process(target=Strategy, args=(5, windowQ, workerQ, queryQ, stg4Q)).start()
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('fusion')
     palette = QPalette()

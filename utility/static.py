@@ -1,8 +1,9 @@
 import datetime
 import telegram
 from threading import Thread
+from utility.setting import system_path
 
-f = open('D:/PythonProjects/MyCoin/trader/user.txt')
+f = open(f'{system_path}/utility/user.txt')
 lines = f.readlines()
 bot = lines[2].strip()
 user_id = lines[3].strip()

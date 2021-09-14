@@ -8,11 +8,11 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QThread
 from pyupbit import WebSocketManager
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-from setting import *
-from static import now, timedelta_sec, strf_time, telegram_msg, timedelta_hour, strp_time
+from utility.setting import *
+from utility.static import now, timedelta_sec, strf_time, telegram_msg, timedelta_hour, strp_time
 
 
-class TraderUpbit(QThread):
+class Trader(QThread):
     data0 = QtCore.pyqtSignal(list)
     data1 = QtCore.pyqtSignal(list)
     data2 = QtCore.pyqtSignal(list)
@@ -95,7 +95,7 @@ class TraderUpbit(QThread):
         user.txt 파일에서 업비트 access 키와 secret 키를 읽어 self.upbit 객체 생성
         해당 객체는 매도수 주문 및 체결확인용이다.
         """
-        f = open('D:/PythonProjects/MyCoin/trader/user.txt')
+        f = open(f'{system_path}/utility/user.txt')
         lines = f.readlines()
         access_key = lines[0].strip()
         secret_key = lines[1].strip()
