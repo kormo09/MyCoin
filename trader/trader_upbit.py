@@ -48,6 +48,7 @@ class TraderUpbit(QThread):
         self.df_td = pd.DataFrame(columns=columns_td)   # 거래목록
         self.df_tt = pd.DataFrame(columns=columns_tt)   # 실현손익
         self.str_today = strf_time('%Y%m%d', timedelta_hour(-9))
+        self.dict_jcdt = {}                             # 종목별 체결시간 저장용
         self.dict_intg = {
             '예수금': 0,
             '종목당투자금': 0,                            # 종목당 투자금은 int(예수금 / 최대매수종목수)로 계산
@@ -171,45 +172,54 @@ class TraderUpbit(QThread):
                     self.Sell(data[1], data[2], data[3])
 
             """
-            실시간 웹소켓큐로 데이터가 들어오면 등락율과 누적거래대금의 단위를 변경하고
-            매수 아이디 목록에 티커명이 있는지, 잔고목록에 티커명이 있는지 확인하여
-            전략 연산 프로세스로 데이터를 보낸다.
+            실시간 웹소켓큐로 데이터가 들어오면 우선 티커명, 시간을 뽑아
+            티커별 마지막 시간이 저장된 self.dict_jcdt의 시간과 틀리면 전략 연산 프로세스로 데이터를 보낸다. 
             """
             data = self.websocketQ.get()
             ticker = data['code']
-            c = data['trade_price']
-            h = data['high_price']
-            low = data['low_price']
-            per = round(data['change_rate'] * 100, 2)
-            dm = int(data['acc_trade_price'] / 1000)
-            bid = data['acc_bid_volume']
-            ask = data['acc_ask_volume']
             d = data['trade_date']
             t = data['trade_time']
+            dt = d + t
 
-            uuidnone = self.buy_uuid is None
-            injango = ticker in self.df_jg.index
-            data = [ticker, c, h, low, per, dm, bid, ask, d, t, uuidnone, injango, self.dict_intg['종목당투자금']]
+            try:
+                last_jcdt = self.dict_jcdt[ticker]
+            except KeyError:
+                last_jcdt = None
 
-            if ticker in self.tickers1:
-                self.stg1Q.put(data)
-            elif ticker in self.tickers2:
-                self.stg2Q.put(data)
-            elif ticker in self.tickers3:
-                self.stg3Q.put(data)
-            elif ticker in self.tickers4:
-                self.stg4Q.put(data)
+            if last_jcdt is None or dt != last_jcdt:
+                self.dict_jcdt[ticker] = dt
 
-            """ 잔고목록 갱신 및 매도조건 확인 """
-            if injango:
-                ch = round(bid / ask * 100, 2)
-                self.UpdateJango(ticker, c, ch)
+                c = data['trade_price']
+                h = data['high_price']
+                low = data['low_price']
+                per = round(data['change_rate'] * 100, 2)
+                dm = data['acc_trade_price']
+                bid = data['acc_bid_volume']
+                ask = data['acc_ask_volume']
 
-            """ 날짜 변경시 날짜변수 갱신, 각종목록 및 웹소켓큐 초기화 """
-            if d != self.str_today:
-                self.str_today = d
-                self.Initialization(init=True)
-                telegram_msg('관심종목 및 거래정보를 업데이트하였습니다.')
+                uuidnone = self.buy_uuid is None
+                injango = ticker in self.df_jg.index
+                data = [ticker, c, h, low, per, dm, bid, ask, d, t, uuidnone, injango, self.dict_intg['종목당투자금']]
+
+                if ticker in self.tickers1:
+                    self.stg1Q.put(data)
+                elif ticker in self.tickers2:
+                    self.stg2Q.put(data)
+                elif ticker in self.tickers3:
+                    self.stg3Q.put(data)
+                elif ticker in self.tickers4:
+                    self.stg4Q.put(data)
+
+                """ 잔고목록 갱신 및 매도조건 확인 """
+                if injango:
+                    ch = round(bid / ask * 100, 2)
+                    self.UpdateJango(ticker, c, ch)
+
+                """ 날짜 변경시 날짜변수 갱신, 각종목록 및 웹소켓큐 초기화 """
+                if d != self.str_today:
+                    self.str_today = d
+                    self.Initialization(init=True)
+                    telegram_msg('관심종목 및 거래정보를 업데이트하였습니다.')
 
             """
             체결확인, 거래정보, 관심종목 정보는 1초마다 확인 및 갱신되며
