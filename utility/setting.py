@@ -1,6 +1,8 @@
 from PyQt5.QtGui import QFont, QColor
+import os
 
-system_path = 'D:/PythonProjects/MyCoin'
+#system_path = 'D:/PythonProjects/MyCoin'
+system_path = ('/').join((os.getcwd().split('\\'))[:-1])
 db_path = f'{system_path}/database'
 db_stg = f'{db_path}/stg.db'
 db_tick = f'{db_path}/tick1.db'
